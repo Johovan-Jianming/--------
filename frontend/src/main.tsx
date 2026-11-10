@@ -22,6 +22,7 @@ import { Radar } from './pages/Radar';
 import { Wiki } from './pages/Wiki';
 import { Atlas } from './pages/Atlas';
 import { Lab } from './pages/Lab';
+import { AgentWorkspace } from './pages/AgentWorkspace';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -93,6 +94,14 @@ createRoot(document.getElementById('root')!).render(
             element={
               <Shell>
                 <Lab />
+              </Shell>
+            }
+          />
+          <Route
+            path="/agent"
+            element={
+              <Shell>
+                <AgentWorkspace />
               </Shell>
             }
           />

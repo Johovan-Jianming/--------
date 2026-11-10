@@ -93,13 +93,31 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     },
     {
       numeral: '贰',
-      title: '价值发现与长编',
+      title: '价值发现与考异',
       items: [
         {
-          to: '/radar',
+          to: '/radar?mode=value',
           code: '2.1',
-          label: '多史料对比与长编',
-          desc: '文献挖掘 · 五维雷达 · 考异',
+          label: '文献溯源与价值甄别',
+          desc: '一手孤本 vs 二手转引剥离',
+        },
+        {
+          to: '/radar?mode=changbian',
+          code: '2.2',
+          label: '多版本对读与考异长编',
+          desc: '母本 · 未刊稿 · 已刊本互勘',
+        },
+        {
+          to: '/radar?mode=radar',
+          code: '2.3',
+          label: '五维雷达与盲区选题',
+          desc: '隐蔽盲区探针 · 社科选题孵化',
+        },
+        {
+          to: '/radar?mode=stance',
+          code: '2.4',
+          label: '概念流变与中国立场审定',
+          desc: '跨语际术语偏移 · 主体立场纠偏',
         },
       ],
     },
@@ -110,14 +128,20 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         {
           to: '/wiki',
           code: '3.1',
-          label: 'LLM Wiki 知识库',
-          desc: '增量编译 · 问答写回',
+          label: 'LLM Wiki 与关系图谱',
+          desc: 'Graph View · 两步摄取 · 巡检',
         },
         {
           to: '/atlas',
           code: '3.2',
           label: '历史地理图谱',
           desc: '天地图 · 复旦 CHGIS 1820',
+        },
+        {
+          to: '/agent',
+          code: '3.3',
+          label: '智能体 Chat & Work 台',
+          desc: '外部 MCP 联查 · 自动产出成果',
         },
       ],
     },
@@ -137,8 +161,11 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   ];
 
   const flatItems = groups.flatMap((g) => g.items);
+  const fullPath = location.pathname + location.search;
   const currentItem =
-    flatItems.find((i) => i.to === location.pathname) || flatItems[0];
+    flatItems.find((i) => i.to === fullPath) ||
+    flatItems.find((i) => i.to.split('?')[0] === location.pathname) ||
+    flatItems[0];
 
   return (
     <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)] lg:grid lg:grid-cols-[256px_1fr]">
@@ -205,47 +232,52 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
                 </div>
 
                 <div className="ml-3.5 border-l border-[var(--line)]">
-                  {group.items.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      className={({ isActive }) =>
-                        `relative -ml-px block border-l-2 py-2 pr-2.5 pl-3.5 transition-colors ${
-                          isActive
-                            ? 'border-[var(--seal)] bg-[var(--sheet)] text-[var(--ink)]'
-                            : 'border-transparent text-[var(--ink-secondary)] hover:border-[var(--ink-muted)] hover:text-[var(--ink)]'
-                        }`
-                      }
-                    >
-                      {({ isActive }) => (
-                        <>
-                          <div className="flex items-center justify-between gap-2">
-                            <span
-                              className={`text-[13px] ${
-                                isActive ? 'font-semibold' : ''
-                              }`}
-                            >
-                              {item.label}
+                  {group.items.map((item) => {
+                    const isExactActive =
+                      fullPath === item.to ||
+                      (!location.search &&
+                        item.to === '/radar?mode=radar' &&
+                        location.pathname === '/radar') ||
+                      (!item.to.includes('?') &&
+                        location.pathname === item.to);
+                    return (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        className={() =>
+                          `relative -ml-px block border-l-2 py-2 pr-2.5 pl-3.5 transition-colors ${
+                            isExactActive
+                              ? 'border-[var(--seal)] bg-[var(--sheet)] text-[var(--ink)]'
+                              : 'border-transparent text-[var(--ink-secondary)] hover:border-[var(--ink-muted)] hover:text-[var(--ink)]'
+                          }`
+                        }
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span
+                            className={`text-[13px] ${
+                              isExactActive ? 'font-semibold' : ''
+                            }`}
+                          >
+                            {item.label}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {typeof item.badge === 'number' &&
+                              item.badge > 0 && (
+                                <span className="rounded-[2px] bg-[#9b2c1f]/10 px-1.5 py-0.2 font-mono text-[10px] font-semibold text-[var(--seal)]">
+                                  {item.badge}
+                                </span>
+                              )}
+                            <span className="font-mono text-[10px] text-[var(--ink-muted)]">
+                              {item.code}
                             </span>
-                            <div className="flex items-center gap-1.5">
-                              {typeof item.badge === 'number' &&
-                                item.badge > 0 && (
-                                  <span className="rounded-[2px] bg-[#9b2c1f]/10 px-1.5 py-0.2 font-mono text-[10px] font-semibold text-[var(--seal)]">
-                                    {item.badge}
-                                  </span>
-                                )}
-                              <span className="font-mono text-[10px] text-[var(--ink-muted)]">
-                                {item.code}
-                              </span>
-                            </div>
                           </div>
-                          <div className="mt-0.5 text-[11px] text-[var(--ink-muted)]">
-                            {item.desc}
-                          </div>
-                        </>
-                      )}
-                    </NavLink>
-                  ))}
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-[var(--ink-muted)]">
+                          {item.desc}
+                        </div>
+                      </NavLink>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -289,6 +321,15 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
           </div>
 
           <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => navigate('/agent')}
+              className="rounded-[3px] bg-[#1f1b17] px-3 py-1 text-xs font-medium text-white hover:bg-[#36302a]"
+              title="打开智能体 Chat & Work 协同工作台（接入外部 MCP 论文库与工具）"
+            >
+              🤖 智能体 Chat / Work
+            </button>
+
             <button
               type="button"
               onClick={async () => {

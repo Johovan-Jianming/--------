@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as echarts from 'echarts';
 import { useWorkbench } from '../store';
 import { toast } from 'sonner';
@@ -39,6 +39,15 @@ export const Radar: React.FC = () => {
   } = useWorkbench();
 
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeSubModule =
+    (searchParams.get('mode') as 'value' | 'changbian' | 'radar' | 'stance') ||
+    'radar';
+
+  const setSubModule = (m: 'value' | 'changbian' | 'radar' | 'stance') => {
+    setSearchParams({ mode: m });
+  };
+
   const chartRef = useRef<HTMLDivElement | null>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
 
@@ -408,21 +417,27 @@ ${rec.radarNotes || '（暂无雷达按语）'}
 
   return (
     <div className="space-y-6">
-      {/* ─── Header ─── */}
+      {/* ─── Header & 贰·四大价值发现子模块切换器 ─── */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="font-mono text-[11px] tracking-widest text-[#7a7166] uppercase">
-            HISTORIOGRAPHICAL PROBLEM RADAR · QING HISTORY
+            STAGE II · SOURCE CRITICISM, KAOYI CHANGBIAN, RADAR &amp; STANCE AUDIT
           </div>
           <h1 className="mt-1 font-serif text-3xl font-semibold text-[#1f1b17]">
-            史料问题意识与研究方向雷达
+            {activeSubModule === 'value'
+              ? '2.1 文献溯源与价值甄别（一手孤本 vs 二手转引剥离）'
+              : activeSubModule === 'changbian'
+              ? '2.2 多版本对读与《通鉴考异》长编纂修'
+              : activeSubModule === 'stance'
+              ? '2.4 中西概念流变与中国史学主体立场审定'
+              : '2.3 五维史料问题雷达与前沿选题自发现'}
           </h1>
           <p className="mt-1.5 text-sm text-[#4a433a]">
-            突破传统被动对读：通过智能体自主探寻清史未刊档案中的隐蔽盲区、制度异文与概念置换，智能生成前沿科研选题与史学假说。
+            将“价值发现与长编”拆解为四大专职研究工位：文献等级鉴定、三方长编考异、五维盲区选题雷达、中西概念偏移审定。
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <button
             type="button"
             disabled={isAnalyzing}
@@ -430,11 +445,234 @@ ${rec.radarNotes || '（暂无雷达按语）'}
             className="rounded-[3px] bg-[#9b2c1f] px-4 py-2.5 text-xs font-medium text-white shadow-sm transition hover:bg-[#7e2217] disabled:opacity-50"
           >
             {isAnalyzing
-              ? '智能体正在探寻史学盲区与选题...'
-              : '🧭 启动史学盲区与前沿选题自发现 →'}
+              ? '智能体正在分析...'
+              : '🧭 启动智能体全维扫描与考证 →'}
           </button>
         </div>
       </div>
+
+      {/* ─── 四大子模块导航栏 ─── */}
+      <div className="grid grid-cols-1 gap-2 rounded-[4px] border border-[#dcd5c9] bg-white p-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          {
+            id: 'value' as const,
+            code: '2.1',
+            label: '文献溯源与价值甄别',
+            desc: '一手珍稀孤本 vs 二手转引剥离',
+          },
+          {
+            id: 'changbian' as const,
+            code: '2.2',
+            label: '多版本对读与考异长编',
+            desc: '清代母本 · 未刊稿 · 已刊本三方互勘',
+          },
+          {
+            id: 'radar' as const,
+            code: '2.3',
+            label: '五维雷达与盲区选题',
+            desc: '隐蔽盲区探寻 · 社科前沿假说孵化',
+          },
+          {
+            id: 'stance' as const,
+            code: '2.4',
+            label: '概念流变与中国立场审定',
+            desc: '跨语际术语偏移 · 殖民宗藩话语纠偏',
+          },
+        ].map((tab) => {
+          const active = activeSubModule === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setSubModule(tab.id)}
+              className={`rounded-[3px] border p-3 text-left transition ${
+                active
+                  ? 'border-[#1f1b17] bg-[#1f1b17] text-white'
+                  : 'border-transparent bg-[#f6f4ef] text-[#1f1b17] hover:border-[#dcd5c9]'
+              }`}
+            >
+              <div className="flex items-center justify-between font-mono text-[10px] opacity-80">
+                <span>MODULE {tab.code}</span>
+                {active && (
+                  <span className="rounded bg-[#9b2c1f] px-1.5 py-0.2 text-[9px] text-white">
+                    当前工位
+                  </span>
+                )}
+              </div>
+              <div className="mt-1 font-serif text-xs font-semibold">
+                {tab.label}
+              </div>
+              <div className="mt-0.5 text-[10px] opacity-75">{tab.desc}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ─── 专台 2.1：文献溯源与价值甄别（一手孤本 vs 二手转引剥离台） ─── */}
+      {activeSubModule === 'value' && (
+        <div className="space-y-4 rounded-[4px] border border-[#dcd5c9] bg-white p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeeae1] pb-3">
+            <div>
+              <h2 className="font-serif text-lg font-semibold text-[#1f1b17]">
+                🔍 2.1 一手珍稀手稿 vs 二手通行文献剥离鉴定表
+              </h2>
+              <p className="mt-0.5 text-xs text-[#7a7166]">
+                针对西方汉学家未刊档案混合“孤本抄件、亲历信函”与“通行官书摘抄”的特征，逐段剥离并评定史料价值等级
+              </p>
+            </div>
+            <span className="rounded bg-[#9b2c1f]/10 px-3 py-1 font-mono text-xs font-semibold text-[#9b2c1f]">
+              当前卷宗一手孤本含金量：74% (A级珍稀)
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="rounded-[3px] border border-emerald-700/30 bg-emerald-50/40 p-4">
+              <div className="flex items-center justify-between">
+                <span className="rounded bg-emerald-800 px-2 py-0.5 font-mono text-[10px] text-white">
+                  A级 · 一手珍稀孤本层
+                </span>
+                <span className="font-mono text-xs font-bold text-emerald-900">
+                  占比 48%
+                </span>
+              </div>
+              <h4 className="mt-2 font-serif text-sm font-bold text-[#1f1b17]">
+                审稿人红墨水行间批注与理藩院通事私账
+              </h4>
+              <p className="mt-1.5 text-xs leading-relaxed text-[#4a433a]">
+                <strong>鉴定依据：</strong>
+                未见于任何已刊本及《清实录》，直接记录了康熙三十年多伦诺尔会盟期间随行满蒙笔帖式的译词争执与张家口关差规费，具唯一孤本价值。
+              </p>
+            </div>
+
+            <div className="rounded-[3px] border border-amber-700/30 bg-amber-50/40 p-4">
+              <div className="flex items-center justify-between">
+                <span className="rounded bg-amber-700 px-2 py-0.5 font-mono text-[10px] text-white">
+                  A-级 · 早期跨语际未刊初译层
+                </span>
+                <span className="font-mono text-xs font-bold text-amber-900">
+                  占比 26%
+                </span>
+              </div>
+              <h4 className="mt-2 font-serif text-sm font-bold text-[#1f1b17]">
+                《圣武纪·国朝绥服蒙古记》未刊英文打字底稿
+              </h4>
+              <p className="mt-1.5 text-xs leading-relaxed text-[#4a433a]">
+                <strong>鉴定依据：</strong>
+                底本虽源自道光朝魏源刻本，但保留了20世纪初美国汉学家对满蒙盟旗制度的早期英文格义与删节过程，具重要学术史价值。
+              </p>
+            </div>
+
+            <div className="rounded-[3px] border border-zinc-300 bg-zinc-50 p-4">
+              <div className="flex items-center justify-between">
+                <span className="rounded bg-zinc-600 px-2 py-0.5 font-mono text-[10px] text-white">
+                  B级 · 二手转引与背景摘抄层
+                </span>
+                <span className="font-mono text-xs font-bold text-zinc-700">
+                  占比 26%
+                </span>
+              </div>
+              <h4 className="mt-2 font-serif text-sm font-bold text-[#1f1b17]">
+                转引马戛尔尼与巴德利（Baddeley）二手俄文汇编
+              </h4>
+              <p className="mt-1.5 text-xs leading-relaxed text-[#4a433a]">
+                <strong>鉴定依据：</strong>
+                手稿第4页下方注释系转引1919年伦敦已刊俄国使团汇编，存在二手拼凑造成的干支纪年错位，引用时须以清代内阁满文底档核校。
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 专台 2.4：概念流变与中国史学主体立场审定专台 ─── */}
+      {activeSubModule === 'stance' && (
+        <div className="space-y-4 rounded-[4px] border border-[#dcd5c9] bg-white p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeeae1] pb-3">
+            <div>
+              <h2 className="font-serif text-lg font-semibold text-[#1f1b17]">
+                ⚖️ 2.4 中西跨语际概念对勘与中国史学主体立场审定台
+              </h2>
+              <p className="mt-0.5 text-xs text-[#7a7166]">
+                解构西方汉学未刊手稿中的威斯特伐利亚主权投射与殖民话语套用，确立中国自主历史学知识体系话语
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const created = upsertWikiArticle({
+                  title: '中国史学立场审定：清代藩部盟旗与西方Suzerainty概念辨正',
+                  slug: `stance-${Date.now().toString().slice(-4)}`,
+                  category: 'concept',
+                  content: `# 中国史学立场审定：清代藩部盟旗与西方 Suzerainty 概念辨正\n\n> 来源：2.4 概念流变与中国立场审定专台\n\n## 1. 核心术语偏移诊断\n- **清代母本概念**：外藩蒙古 · 编旗赐爵 · 恩威绥服（大一统礼法与行政管辖体系）\n- **手稿初稿译词**：Voluntary allegiance and tribute（自愿效忠与朝贡）\n- **手稿改定译词**：Submission under Manchu military suzerainty（满洲军事宗主权下之臣服）\n\n## 2. 中国史学主体立场纠偏\n西方译者使用近代殖民法概念“Suzerainty（宗主权）”与“Court of Colonial Affairs（殖民事务院）”翻译清代理藩院体制，割裂了清代多民族大一统国家内部边疆治理与近代欧洲海外殖民地的本质区别。`,
+                  linkedRegionIds: imageRegions[0] ? [imageRegions[0].id] : [],
+                });
+                toast.success(
+                  `已将《中国史学立场审定报告》写入 LLM Wiki：${created.title}`
+                );
+              }}
+              className="rounded-[3px] bg-[#1f1b17] px-3.5 py-1.5 text-xs font-medium text-white hover:bg-[#36302a]"
+            >
+              📥 将立场审定报告沉淀至 Wiki →
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left text-xs">
+              <thead>
+                <tr className="border-b border-[#dcd5c9] bg-[#f6f4ef] font-serif text-[#1f1b17]">
+                  <th className="p-3">清代母本原词</th>
+                  <th className="p-3">未刊手稿初译 / 改译</th>
+                  <th className="p-3">西方话语偏移诊断</th>
+                  <th className="p-3">中国史学主体立场审定与规范表述</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#eeeae1]">
+                <tr>
+                  <td className="p-3 font-serif font-semibold text-[#1f1b17]">
+                    会盟编旗 / 绥服外藩
+                  </td>
+                  <td className="p-3 font-mono text-[#9b2c1f]">
+                    voluntary tribute → military suzerainty
+                  </td>
+                  <td className="p-3 text-[#4a433a]">
+                    以近代欧洲国际法“宗主权（Suzerainty）”格义清代多伦诺尔会盟，隐去了喀尔喀蒙古内附编旗后的中央行政管辖属性。
+                  </td>
+                  <td className="p-3 font-medium text-[#1f1b17]">
+                    多伦诺尔会盟标志着喀尔喀蒙古正式纳入清朝中央盟旗行政建置体系，属大一统国家内部边疆治理，非近代殖民宗藩关系。
+                  </td>
+                </tr>
+                <tr>
+                  <td className="p-3 font-serif font-semibold text-[#1f1b17]">
+                    理藩院 (Lifanyuan)
+                  </td>
+                  <td className="p-3 font-mono text-[#9b2c1f]">
+                    Court of Colonial Affairs / Barbarian Office
+                  </td>
+                  <td className="p-3 text-[#4a433a]">
+                    19世纪末至20世纪中叶西方手稿常将“理藩”类比为大英帝国殖民部（Colonial Office），带有强烈西方殖民中心论预设。
+                  </td>
+                  <td className="p-3 font-medium text-[#1f1b17]">
+                    应统一音译注释为 Lifanyuan (Board for the Administration of Outlying Regions)，阐明其掌管蒙藏回疆爵禄、盟旗、会盟与涉俄考据之中央部院职能。
+                  </td>
+                </tr>
+                <tr>
+                  <td className="p-3 font-serif font-semibold text-[#1f1b17]">
+                    朝贡互市 / 恰克图市圈
+                  </td>
+                  <td className="p-3 font-mono text-[#9b2c1f]">
+                    Vassalage Tribute Trade
+                  </td>
+                  <td className="p-3 text-[#4a433a]">
+                    将清廷通过互市调控边疆经济与礼制秩序简化为单向度“附庸纳贡”。
+                  </td>
+                  <td className="p-3 font-medium text-[#1f1b17]">
+                    辨明“礼制朝觐”与“恰克图条约互市”的双轨性，还原清廷以边关贸易维护北方疆域稳定的主动战略。
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* ─── Penetration Banner ─── */}
       {stagedComparisonInput && (
