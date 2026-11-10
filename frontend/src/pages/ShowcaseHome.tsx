@@ -1,97 +1,81 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useWorkbench } from '../store';
 
-interface StageSpec {
+interface HeroScene {
   id: number;
-  code: string;
-  title: string;
-  subtitle: string;
-  engine: string;
-  summary: string;
+  tag: string;
+  headlinePrefix: string;
+  headlineAccent: string;
+  caption: string;
   route: string;
 }
 
-const WORKFLOW_STAGES: StageSpec[] = [
+const HERO_SCENES: HeroScene[] = [
   {
     id: 0,
-    code: 'STEP 01 · EAD 7-LEVEL CATALOGING',
-    title: '馆藏七级编目与原件像素框选',
-    subtitle: '客观著录层 · 150字三段摘记层 · 三态核验机',
-    engine: 'EAD v2.1 · IndexedDB 持久化存储 · xywh 坐标锚定',
-    summary:
-      '支持全宗、系列、子系列、档案盒、文件夹、卷、单件七级编目，上传 PDF / JPG 扫描件并在原图上框选证据区域。',
-    route: '/reader',
+    tag: 'SCENE 01 · MULTIMODAL ARCHIVAL INGEST',
+    headlinePrefix: '多模态未刊档案 ',
+    headlineAccent: '全格式兼容',
+    caption:
+      '支持海外馆藏 PDF 全卷、高分辨率 TIFF/JPG 原件扫描页、EAD XML 与 Markdown 笔记一键入库，自动挂载七级编目树。',
+    route: '/workbench',
   },
   {
     id: 1,
-    code: 'STEP 02 · ASSISTED LINE & LAYER PROOFREADING',
-    title: '双层手迹剥离与行句辅助校订',
-    subtitle: '打字底稿与手写旁批解耦 · 逐行辅助框对照',
-    engine: 'MinerU · PaddleOCR-VL-1.6 · 超算 TokenPlan',
-    summary:
-      '对框选区域进行多引擎识读，通过行句辅助框实现图文逐行对照校勘、古籍标点、学术翻译与地名提取。',
+    tag: 'SCENE 02 · DUAL-LAYER HANDWRITING & MARGINALIA',
+    headlinePrefix: '双层手迹与旁批 ',
+    headlineAccent: '精准解耦提取',
+    caption:
+      '以魏特夫 Box 66 手稿为例：自动分离英文打字底稿与审稿人铅笔行间改订（Tsai-li → Tsai-feng 载沣、K.A.W.!、cf. Dr. Hu!）。',
     route: '/proofread',
   },
   {
     id: 2,
-    code: 'STEP 03 · 5D HISTORIOGRAPHICAL RADAR',
-    title: '五维史料雷达与《通鉴考异》长编',
-    subtitle: '隐蔽盲区探寻 · 前沿选题假说 · 中国史学立场审定',
-    engine: 'ECharts 5D Radar · 司马光考异体例 · 概念偏移纠偏',
-    summary:
-      '自主发掘常态阅读易忽略的底层通事、耗银账目与概念错位，输出五维雷达评分、科研课题假说与三方比对长编。',
-    route: '/radar',
+    tag: 'SCENE 03 · 5D RADAR & SIMA GUANG KAOYI',
+    headlinePrefix: '五维史料雷达 ',
+    headlineAccent: '盲区探寻与考异',
+    caption:
+      '贯通 Box 9《清史总纲》与 Box 66《满洲帝国的衰落》，自主发掘“抄家财政”“荒政中饱”选题并按《通鉴考异》体例对读实录。',
+    route: '/radar?mode=radar',
   },
   {
     id: 3,
-    code: 'STEP 04 · LLM WIKI & CHGIS 1820 ATLAS',
-    title: 'LLM Wiki 知识编译与 1820 清代图谱',
-    subtitle: '双向链接知识沉淀 · 哈佛/复旦 CHGIS 府州县底图',
-    engine: 'Karpathy LLM Wiki · 天地图 × CHGIS v6 · Cytoscape',
-    summary:
-      '将审定证据与课题假说沉淀为双向链接 Markdown 词条，并在 1820 年清代疆域底图与多模态知识图谱上联动呈现。',
-    route: '/atlas',
+    tag: 'SCENE 04 · LLM WIKI & CHGIS 1820 ATLAS',
+    headlinePrefix: '四级证据链图谱 ',
+    headlineAccent: '1820 空间落点',
+    caption:
+      '复刻 nashsu/llm_wiki 双向链接、Cytoscape 关系网与两步思维链摄取，联动 CHGIS 1820 清代府州县底图与外部 MCP 检索。',
+    route: '/wiki',
   },
 ];
 
-const AGENT_SKILLS_AND_MCP = [
+const GIT_COMMIT_LOG = [
   {
-    kind: 'Agent Skill',
-    id: 'qing-ead-cataloging',
-    path: '.agent/skills/qing-ead-cataloging/SKILL.md',
-    title: 'EAD 七级编目与三态核验技能',
-    desc: '遵循 v2.1 编目规范，严格分离客观著录层与内容摘记层，自动生成 150 字以内三段式摘记并维护「○目录 / ●样例 / ★原件」核验状态。',
-    route: '/workbench',
+    hash: 'HEAD · v2.5',
+    date: '2026-11-11 05:50',
+    scope: 'feat(wittfogel & home)',
+    msg: '入库魏特夫 Box 9《清史总纲》与 Box 66《满洲帝国的衰落》真实档案全链路示范；重构书卷风 Bento 专题首页与 PLAN_AND_GOAL',
   },
   {
-    kind: 'Agent Skill',
-    id: 'historiography-radar',
-    path: '.agent/skills/historiography-radar/SKILL.md',
-    title: '五维史料雷达与《考异》长编技能',
-    desc: '驱动智能体从制度异文、隐蔽盲区、概念置换、母本冲突、课题潜力五个维度扫描未刊手稿，按司马光体例纂修长编。',
-    route: '/radar',
+    hash: 'e55cb0c · v2.4',
+    date: '2026-11-11 05:10',
+    scope: 'feat(radar, wiki, agent)',
+    msg: '拆分阶段贰为 4 个独立工作台；升级 nashsu/llm_wiki 图谱/两步摄取/Lint 巡检；新增 /agent 智能体 Chat & Work 协同与 OpenAlex/CHGIS MCP',
   },
   {
-    kind: 'MCP Server',
-    id: 'search_chgis_1820',
-    path: 'backend/mcp_server.py :: search_chgis_1820',
-    title: 'CHGIS 1820 清代历史地理考据工具',
-    desc: '基于标准 Model Context Protocol 协议检索 1820 年清代府/州/厅/县矢量边界与治所坐标，支持三色置信度空间落点。',
-    route: '/atlas',
-  },
-  {
-    kind: 'MCP Server',
-    id: 'audit_china_stance',
-    path: 'backend/mcp_server.py :: run_historiography_radar',
-    title: '中西概念置换与中国史学立场审计工具',
-    desc: '识别西方汉学手稿将威斯特伐利亚主权、殖民宗藩概念强加于清代“朝贡/藩服/理藩”体制的语义偏移并生成校勘按语。',
-    route: '/radar',
+    hash: '1b44bfc · v2.1',
+    date: '2026-11-11 04:40',
+    scope: 'feat(proofread, skills, ci)',
+    msg: '实现 OCR 行句级辅助框双向高亮校勘；创建 .agent/skills 领域技能与 backend/mcp_server.py；配置 GitHub Pages 自动部署',
   },
 ];
 
 export const ShowcaseHome: React.FC = () => {
   const navigate = useNavigate();
-  const [activeStage, setActiveStage] = useState<number>(0);
+  const { loadSampleDossier } = useWorkbench();
+  const [activeScene, setActiveScene] = useState<number>(1);
+  const [activeFeatureIdx, setActiveFeatureIdx] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [customVideoUrl, setCustomVideoUrl] = useState<string>('');
   const videoFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -99,8 +83,8 @@ export const ShowcaseHome: React.FC = () => {
   useEffect(() => {
     if (!isPlaying || customVideoUrl) return;
     const timer = setInterval(() => {
-      setActiveStage((prev) => (prev + 1) % WORKFLOW_STAGES.length);
-    }, 4500);
+      setActiveScene((prev) => (prev + 1) % HERO_SCENES.length);
+    }, 4800);
     return () => clearInterval(timer);
   }, [isPlaying, customVideoUrl]);
 
@@ -110,484 +94,1168 @@ export const ShowcaseHome: React.FC = () => {
     setCustomVideoUrl(URL.createObjectURL(file));
   };
 
-  const currentStage = WORKFLOW_STAGES[activeStage];
+  const handleLoadWittfogelDemo = async () => {
+    await loadSampleDossier();
+    navigate('/proofread');
+  };
+
+  const scene = HERO_SCENES[activeScene];
 
   return (
     <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)] selection:bg-[#9b2c1f]/15">
-      {/* ─── 1. 顶部书卷风导航栏 ─── */}
-      <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--paper)]/95 backdrop-blur-xs">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
-          <div className="flex items-center gap-3">
+      {/* ─── 1. 极简书卷风顶部栏（中间胶囊导航 + 右侧操作） ─── */}
+      <header className="sticky top-0 z-30 border-b border-[var(--line)]/80 bg-[var(--paper)]/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+          {/* 左侧品牌印记 */}
+          <div
+            onClick={() => navigate('/')}
+            className="flex cursor-pointer items-center gap-2.5"
+          >
             <span
-              className="flex h-7 w-7 items-center justify-center rounded-[3px] font-serif text-xs font-semibold text-white"
+              className="flex h-7 w-7 items-center justify-center rounded-[4px] font-serif text-xs font-semibold text-white shadow-xs"
               style={{ backgroundColor: 'var(--seal)' }}
             >
               清
             </span>
-            <div>
-              <span className="font-serif text-[15px] font-semibold tracking-tight text-[var(--ink)]">
-                西方馆藏未刊清史文献 · 数智整理与知识生产平台
-              </span>
-            </div>
+            <span className="font-serif text-[15px] font-semibold tracking-tight text-[var(--ink)]">
+              清史未刊文献 · 数智整理平台
+            </span>
           </div>
 
-          <nav className="hidden items-center gap-5 text-xs font-medium text-[var(--ink-secondary)] md:flex">
+          {/* 中间悬浮胶囊导航（借鉴参考图1的居中胶囊导航结构，保留宣纸书卷色调） */}
+          <nav className="hidden items-center gap-1 rounded-full border border-[var(--line-strong)] bg-[#fcfaf5] px-2 py-1 text-xs font-medium text-[var(--ink-secondary)] shadow-[0_2px_10px_rgba(31,27,23,0.04)] md:flex">
             <button
               type="button"
-              onClick={() => navigate('/workbench')}
-              className="hover:text-[var(--ink)]"
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="rounded-full bg-[var(--ink)] px-3 py-1 text-white"
             >
-              馆藏编目
+              首页
             </button>
             <button
               type="button"
-              onClick={() => navigate('/reader')}
-              className="hover:text-[var(--ink)]"
+              onClick={() => navigate('/workbench')}
+              className="rounded-full px-3 py-1 transition hover:bg-[#f0ece1] hover:text-[var(--ink)]"
             >
-              原图阅读台
+              七级编目
             </button>
             <button
               type="button"
               onClick={() => navigate('/proofread')}
-              className="hover:text-[var(--ink)]"
+              className="rounded-full px-3 py-1 transition hover:bg-[#f0ece1] hover:text-[var(--ink)]"
             >
-              OCR与校订
+              双层校订
             </button>
             <button
               type="button"
-              onClick={() => navigate('/radar')}
-              className="hover:text-[var(--ink)]"
+              onClick={() => navigate('/radar?mode=radar')}
+              className="rounded-full px-3 py-1 transition hover:bg-[#f0ece1] hover:text-[var(--ink)]"
             >
-              史料雷达
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/atlas')}
-              className="hover:text-[var(--ink)]"
-            >
-              1820历史图谱
+              价值与长编
             </button>
             <button
               type="button"
               onClick={() => navigate('/wiki')}
-              className="hover:text-[var(--ink)]"
+              className="rounded-full px-3 py-1 transition hover:bg-[#f0ece1] hover:text-[var(--ink)]"
             >
               LLM Wiki
             </button>
-          </nav>
-
-          <div className="flex items-center gap-2.5">
             <button
               type="button"
-              onClick={() => navigate('/reader')}
-              className="hidden rounded-[3px] border border-[var(--line)] bg-[var(--sheet)] px-3 py-1.5 text-xs font-medium text-[var(--ink)] hover:border-[var(--ink)] sm:inline-flex"
+              onClick={() => navigate('/atlas')}
+              className="rounded-full px-3 py-1 transition hover:bg-[#f0ece1] hover:text-[var(--ink)]"
             >
-              上传 PDF 实测
+              1820图谱
             </button>
             <button
               type="button"
-              onClick={() => navigate('/workbench')}
-              className="rounded-[3px] bg-[var(--ink)] px-4 py-1.5 text-xs font-medium text-[var(--sheet)] transition hover:bg-zinc-800"
+              onClick={() => navigate('/agent')}
+              className="rounded-full px-3 py-1 text-[#9b2c1f] transition hover:bg-[#9b2c1f]/10"
             >
-              进入研究工作台 →
+              智能体协同
+            </button>
+          </nav>
+
+          {/* 右侧快捷入口 */}
+          <div className="flex items-center gap-2">
+            <a
+              href="#git-changelog"
+              className="hidden rounded-full border border-[var(--line)] bg-[#fcfaf5] px-2.5 py-1 font-mono text-[11px] text-[var(--ink-secondary)] hover:border-[var(--ink)] sm:inline-block"
+            >
+              Git v2.5
+            </a>
+            <button
+              type="button"
+              onClick={() => navigate('/workbench')}
+              className="rounded-full border border-[var(--ink)] bg-[var(--ink)] px-3.5 py-1 text-xs font-medium text-[var(--sheet)] transition hover:bg-zinc-800"
+            >
+              在线使用 →
             </button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 pt-8 pb-20">
-        {/* ─── 2. 首屏标题 + 中间主画幅展示区 (保留宣纸墨色美学，居中画幅动态演示) ─── */}
-        <section>
-          <div className="mx-auto max-w-3xl text-center">
-            <div className="font-mono text-[11px] tracking-widest text-[var(--ink-muted)] uppercase">
-              AGENT-EMPOWERED QING ARCHIVAL RESEARCH &amp; KNOWLEDGE PRODUCTION
+      <main className="mx-auto max-w-6xl px-6 pt-10 pb-24">
+        {/* ═══════════════════════════════════════════════════════════════════
+            第一屏：居中标题 + 中央圆角动态画幅 + 双栏功能概要（对应参考图 1 布局）
+           ═══════════════════════════════════════════════════════════════════ */}
+        <section className="relative">
+          {/* 顶部胶囊徽标 */}
+          <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--line-strong)] bg-[#fcfaf5] px-3.5 py-1 text-[11px] shadow-2xs">
+              <span className="font-semibold text-[#9b2c1f]">
+                ★ 实测示范已就绪
+              </span>
+              <span className="text-[var(--line-strong)]">|</span>
+              <span className="font-mono text-[var(--ink-secondary)]">
+                Karl A. Wittfogel Papers · Box 9 &amp; Box 66
+              </span>
             </div>
-            <h1 className="mt-2 font-serif text-2xl font-semibold leading-snug text-[var(--ink)] sm:text-4xl">
-              智能体赋能西方馆藏汉学家未刊清史文献的整理、价值发现与知识生产
+
+            {/* 主标题：渐变朱砂与浓墨书法感衬线体 */}
+            <h1 className="mt-4 font-serif text-3xl font-semibold tracking-tight sm:text-[40px] sm:leading-[1.2]">
+              <span className="text-[#9b2c1f]">LLM 与 Agent 赋能的</span>
+              <span className="text-[var(--ink)]">未刊清史文献考据引擎</span>
             </h1>
-            <p className="mt-2.5 text-sm text-[var(--ink-secondary)]">
-              以原件扫描图像素坐标为锚点，贯通「EAD 七级编目 → 行句辅助校订 → 五维史料问题雷达 → LLM Wiki 与 1820 清代历史图谱」。
+
+            <p className="mt-3 max-w-2xl text-xs leading-relaxed text-[var(--ink-secondary)] sm:text-sm">
+              全面适配 EAD 七级编目规范、双层手迹解耦、五维史料雷达、LLM Wiki 与 MCP 协议，助力清史数字人文深度知识生产
             </p>
+
+            {/* 两个胶囊按钮 */}
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={handleLoadWittfogelDemo}
+                className="rounded-full border border-[var(--line-strong)] bg-[#fcfaf5] px-5 py-2 text-xs font-medium text-[var(--ink)] shadow-2xs transition hover:border-[var(--ink)] hover:bg-white"
+              >
+                魏特夫 Box 9 &amp; 66 示范 ↗
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/agent')}
+                className="rounded-full bg-[var(--ink)] px-5 py-2 text-xs font-medium text-white shadow-xs transition hover:bg-[#9b2c1f]"
+              >
+                进入智能体协同台
+              </button>
+            </div>
           </div>
 
-          {/* ─── 中间核心演示画幅 (Central Showcase Frame) ─── */}
-          <div className="mt-7 overflow-hidden rounded-[8px] border border-[var(--line-strong)] bg-[var(--sheet)] shadow-[0_10px_36px_rgba(31,27,23,0.07)]">
-            {/* 画幅顶部轻量状态条 */}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] bg-[#f3efe6] px-5 py-2.5 text-xs">
-              <div className="flex items-center gap-2.5">
-                <span className="inline-block h-2 w-2 rounded-full bg-[#9b2c1f]" />
-                <span className="font-mono text-[11px] font-semibold text-[var(--ink)]">
-                  {customVideoUrl ? 'LOCAL VIDEO PLAYBACK' : currentStage.code}
-                </span>
-                <span className="hidden text-[var(--ink-muted)] sm:inline">
-                  | {currentStage.engine}
-                </span>
-              </div>
+          {/* ─── 中央圆角动态展示画幅（Central Rounded Showcase Frame） ─── */}
+          <div className="relative mx-auto mt-8 max-w-4xl">
+            {/* 柔和宣纸朱砂环境背光 */}
+            <div
+              className="pointer-events-none absolute -inset-4 -z-10 rounded-[28px] opacity-60 blur-2xl"
+              style={{
+                background:
+                  'radial-gradient(circle at 30% 30%, rgba(155,44,31,0.14), rgba(180,140,80,0.10) 50%, transparent 80%)',
+              }}
+            />
 
-              <div className="flex items-center gap-2">
-                <input
-                  ref={videoFileInputRef}
-                  type="file"
-                  accept="video/mp4,video/webm"
-                  onChange={handleVideoUpload}
-                  className="hidden"
-                />
-                {customVideoUrl ? (
+            <div className="overflow-hidden rounded-[16px] border border-[var(--line-strong)] bg-[#fcfaf5] shadow-[0_20px_60px_rgba(31,27,23,0.09)]">
+              {/* 若用户选择了本地 MP4 视频则直接播放，否则展示清爽点阵动态画幅 */}
+              {customVideoUrl ? (
+                <div className="relative aspect-[16/9] w-full bg-[#faf8f3]">
+                  <video
+                    src={customVideoUrl}
+                    controls
+                    autoPlay
+                    loop
+                    className="h-full w-full object-contain"
+                  />
                   <button
                     type="button"
                     onClick={() => setCustomVideoUrl('')}
-                    className="rounded-[3px] border border-[var(--line)] bg-white px-2.5 py-1 text-[11px] text-[var(--ink)] hover:border-[var(--ink)]"
+                    className="absolute top-3 right-3 rounded-full border border-[var(--line)] bg-white/90 px-3 py-1 text-[11px] font-medium text-[var(--ink)] shadow-xs"
                   >
-                    返回内置工作流画幅
+                    返回内置动态画幅
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setIsPlaying((p) => !p)}
-                    className="rounded-[3px] border border-[var(--line)] bg-white px-2.5 py-1 text-[11px] text-[var(--ink-secondary)] hover:text-[var(--ink)]"
-                  >
-                    {isPlaying ? '❚❚ 暂停轮播' : '▶ 自动轮播'}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => videoFileInputRef.current?.click()}
-                  className="rounded-[3px] border border-[var(--line)] bg-white px-2.5 py-1 text-[11px] text-[var(--ink-secondary)] hover:border-[var(--ink)] hover:text-[var(--ink)]"
+                </div>
+              ) : (
+                <div
+                  className="relative flex min-h-[390px] flex-col justify-between p-6 sm:p-8"
+                  style={{
+                    backgroundImage:
+                      'radial-gradient(rgba(31, 27, 23, 0.09) 1px, transparent 1px)',
+                    backgroundSize: '18px 18px',
+                  }}
                 >
-                  📁 载入演示视频 (MP4)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate(currentStage.route)}
-                  className="rounded-[3px] bg-[#9b2c1f] px-3 py-1 text-[11px] font-medium text-white hover:bg-[#7e2217]"
-                >
-                  进入当前模块 →
-                </button>
+                  {/* 顶部极简场景状态与核心大字标题 */}
+                  <div className="text-center">
+                    <div className="font-mono text-[10px] tracking-widest text-[var(--ink-muted)] uppercase">
+                      {scene.tag}
+                    </div>
+                    <div className="mt-1.5 font-serif text-2xl font-semibold tracking-tight sm:text-3xl">
+                      <span className="text-[var(--ink)]">
+                        {scene.headlinePrefix}
+                      </span>
+                      <span className="text-[#9b2c1f]">
+                        {scene.headlineAccent}
+                      </span>
+                    </div>
+                    <p className="mx-auto mt-1.5 max-w-xl text-xs text-[var(--ink-secondary)]">
+                      {scene.caption}
+                    </p>
+                  </div>
+
+                  {/* 画幅中央动态视觉舞台（4 个清爽场景无杂乱切换） */}
+                  <div className="my-5 flex flex-1 items-center justify-center">
+                    {activeScene === 0 && (
+                      <div className="grid w-full max-w-3xl grid-cols-1 items-center gap-4 md:grid-cols-12">
+                        {/* 左侧：多格式未刊档案输入卡片 */}
+                        <div className="space-y-2.5 md:col-span-5">
+                          <div className="flex items-center gap-3 rounded-[8px] border border-[var(--line-strong)] bg-white p-3 shadow-xs">
+                            <span className="rounded bg-[#9b2c1f] px-2 py-1 font-mono text-[10px] font-bold text-white">
+                              PDF
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate font-mono text-xs font-semibold text-[var(--ink)]">
+                                Box9folder2_ChingOutline.pdf
+                              </div>
+                              <div className="text-[11px] text-[var(--ink-muted)]">
+                                魏特夫《清史总纲》· 7 页高清原件
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 rounded-[8px] border border-[var(--line-strong)] bg-white p-3 shadow-xs">
+                            <span className="rounded bg-[#1f1b17] px-2 py-1 font-mono text-[10px] font-bold text-white">
+                              PDF
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate font-mono text-xs font-semibold text-[var(--ink)]">
+                                Box66_F7_manchu_empire.pdf
+                              </div>
+                              <div className="text-[11px] text-[var(--ink-muted)]">
+                                《满洲帝国的衰落》手批稿 · 21 页
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 rounded-[8px] border border-[var(--line)] bg-white/80 p-2.5">
+                            <span className="rounded bg-amber-700 px-2 py-0.5 font-mono text-[10px] font-bold text-white">
+                              EAD
+                            </span>
+                            <div className="text-[11px] text-[var(--ink-secondary)]">
+                              自动匹配 ISAD(G) 七级目录与三态核验机
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 中间流转箭头 */}
+                        <div className="flex justify-center md:col-span-2">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--line-strong)] bg-white font-mono text-sm text-[#9b2c1f] shadow-xs">
+                            ➔
+                          </div>
+                        </div>
+
+                        {/* 右侧：结构化七级编目与150字摘记卡 */}
+                        <div className="rounded-[10px] border border-[var(--line-strong)] bg-white p-4 shadow-sm md:col-span-5">
+                          <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
+                            <span className="font-mono text-[10px] font-semibold text-[#9b2c1f]">
+                              EAD 7-LEVEL · 文件夹级 (FOLDER)
+                            </span>
+                            <span className="rounded bg-emerald-50 px-2 py-0.5 font-mono text-[10px] font-semibold text-emerald-800">
+                              ★ 原件已核
+                            </span>
+                          </div>
+                          <div className="mt-2 font-serif text-sm font-semibold text-[var(--ink)]">
+                            Karl A. Wittfogel Papers · Box 9 &amp; Box 66
+                          </div>
+                          <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--ink-secondary)]">
+                            <strong>150字三段式内容摘记：</strong>
+                            自动分离【第一层：馆方原始英文题名】与【第二层：体量+清史内容+已刊关系摘记】，完整记录从《清史十六章总纲》到《满洲帝国的衰落》手稿的知识生产链条。
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {activeScene === 1 && (
+                      <div className="grid w-full max-w-3xl grid-cols-1 items-center gap-5 md:grid-cols-12">
+                        {/* 左侧：真实 Box 66 原件局部与框选高亮 */}
+                        <div className="relative overflow-hidden rounded-[8px] border border-[var(--line-strong)] bg-white p-2 shadow-sm md:col-span-6">
+                          <img
+                            src="/iiif-samples/wittfogel-box66-f7_p0003.jpg"
+                            alt="Wittfogel Box 66 Page 3"
+                            className="h-52 w-full rounded-[4px] object-cover object-[center_26%]"
+                          />
+                          <div className="absolute top-[28%] left-[16%] h-[24%] w-[68%] rounded-[3px] border-2 border-[#1f1b17] bg-[#1f1b17]/10">
+                            <span className="absolute -top-4 left-0 rounded bg-[#1f1b17] px-1.5 py-0.2 font-mono text-[9px] text-white">
+                              #01 打字底稿层 (1908 溥仪登基)
+                            </span>
+                          </div>
+                          <div className="absolute top-[56%] left-[16%] h-[22%] w-[68%] rounded-[3px] border-2 border-[#9b2c1f] bg-[#9b2c1f]/15">
+                            <span className="absolute -top-4 left-0 rounded bg-[#9b2c1f] px-1.5 py-0.2 font-mono text-[9px] text-white">
+                              #02 铅笔校改层：Tsai-li → Tsai-feng (载沣)
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* 右侧：双层手迹剥离卡片 */}
+                        <div className="space-y-2.5 md:col-span-6">
+                          <div className="rounded-[8px] border border-[var(--line)] bg-white p-3 shadow-2xs">
+                            <div className="flex items-center justify-between">
+                              <span className="rounded bg-[#1f1b17] px-1.5 py-0.5 font-mono text-[10px] text-white">
+                                LAYER 1 · 打字机初稿层
+                              </span>
+                              <span className="font-mono text-[10px] text-[var(--ink-muted)]">
+                                Box 66, Folder 7, p.3
+                              </span>
+                            </div>
+                            <p className="mt-1.5 font-mono text-xs text-[var(--ink-secondary)]">
+                              ...standing by his side, the Prince Regent,{' '}
+                              <span className="line-through text-red-700">
+                                Tsai-li
+                              </span>
+                              , coaxed the crying emperor...
+                            </p>
+                          </div>
+
+                          <div className="rounded-[8px] border border-[#9b2c1f]/40 bg-white p-3 shadow-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="rounded bg-[#9b2c1f] px-1.5 py-0.5 font-mono text-[10px] text-white">
+                                LAYER 2 · 魏特夫铅笔审订层
+                              </span>
+                              <span className="font-mono text-[10px] text-[#9b2c1f]">
+                                行间手迹剥离
+                              </span>
+                            </div>
+                            <p className="mt-1.5 font-serif text-xs font-medium text-[var(--ink)]">
+                              铅笔校改为{' '}
+                              <span className="font-mono font-bold text-[#9b2c1f]">
+                                Tsai-feng（摄政王醇亲王载沣）
+                              </span>
+                              ；同卷 p.11 顶批{' '}
+                              <span className="font-mono font-semibold">
+                                &ldquo;Criticism of T&apos;an - K.A.W.!&rdquo;
+                              </span>
+                              ，p.17 页脚批注{' '}
+                              <span className="font-mono font-semibold">
+                                &ldquo;/ cf. Dr. Hu!&rdquo;
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {activeScene === 2 && (
+                      <div className="grid w-full max-w-3xl grid-cols-1 items-center gap-4 md:grid-cols-12">
+                        <div className="rounded-[10px] border border-[var(--line-strong)] bg-white p-4 shadow-xs md:col-span-5">
+                          <div className="font-mono text-[10px] font-semibold text-[#9b2c1f]">
+                            5D HISTORIOGRAPHICAL RADAR
+                          </div>
+                          <div className="mt-1 font-serif text-sm font-semibold text-[var(--ink)]">
+                            魏特夫档案五维价值评估
+                          </div>
+                          <div className="mt-3 space-y-2 text-xs">
+                            {[
+                              { k: '制度细节异文', v: 96 },
+                              { k: '隐蔽史学盲区 (抄家财政)', v: 95 },
+                              { k: '中西概念偏移预警', v: 94 },
+                              { k: '实录母本冲突考异', v: 92 },
+                              { k: '前沿课题孵化潜力', v: 97 },
+                            ].map((item) => (
+                              <div key={item.k}>
+                                <div className="flex justify-between text-[11px]">
+                                  <span className="text-[var(--ink-secondary)]">
+                                    {item.k}
+                                  </span>
+                                  <span className="font-mono font-bold text-[var(--ink)]">
+                                    {item.v}
+                                  </span>
+                                </div>
+                                <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[#f0ece1]">
+                                  <div
+                                    className="h-full rounded-full bg-[#9b2c1f]"
+                                    style={{ width: `${item.v}%` }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2.5 md:col-span-7">
+                          <div className="rounded-[10px] border border-[var(--line-strong)] bg-white p-3.5 shadow-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="font-serif text-xs font-bold text-[#9b2c1f]">
+                                🧭 跨卷盲区发掘：Box 9 提纲 × Box 66 手稿
+                              </span>
+                              <span className="rounded bg-[#f3efe6] px-2 py-0.5 font-mono text-[10px] text-[var(--ink)]">
+                                司马光《通鉴考异》体
+                              </span>
+                            </div>
+                            <p className="mt-1.5 text-xs leading-relaxed text-[var(--ink-secondary)]">
+                              <strong>【考异发现】</strong>Box 9 提纲将
+                              <code className="mx-1 rounded bg-[#f3efe6] px-1 font-mono text-[11px]">
+                                X.B.4 Confiscations (抄家)
+                              </code>
+                              与
+                              <code className="mx-1 rounded bg-[#f3efe6] px-1 font-mono text-[11px]">
+                                XII.B.7 Relief as a racket (荒政敛财)
+                              </code>
+                              列为清代制度专目；Box 66 手稿则以“和珅贪墨八亿两”“南河总督杀五十猪做一盘烤肉”实证之。经对读《清实录》与内务府抄家档，自动剥离晚清野史十倍夸大数字，提炼出“清代内务府抄家财政与河工漏卮”高价值选题。
+                            </p>
+                          </div>
+
+                          <div className="rounded-[10px] border border-[var(--line)] bg-[#faf7f0] p-3 text-xs">
+                            <span className="font-semibold text-[var(--ink)]">
+                              ⚖️ 中国史学主体立场审定：
+                            </span>
+                            <span className="text-[var(--ink-secondary)]">
+                              辨析魏特夫 Box 9“满汉二元征服论（Dual root）”与 Box 66 第17页自承“汉人视清廷同于明朝、敬重《红楼梦》满洲文人”之内部张力。
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {activeScene === 3 && (
+                      <div className="grid w-full max-w-3xl grid-cols-1 items-center gap-4 md:grid-cols-12">
+                        <div className="rounded-[10px] border border-[var(--line-strong)] bg-white p-4 shadow-xs md:col-span-6">
+                          <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
+                            <span className="font-mono text-[10px] font-semibold text-[#9b2c1f]">
+                              NASHSU/LLM_WIKI · 四级证据链
+                            </span>
+                            <span className="font-mono text-[10px] text-emerald-700">
+                              Wiki Lint 100%
+                            </span>
+                          </div>
+                          <div className="mt-2.5 space-y-2 text-xs">
+                            <div className="rounded bg-[#f7f4ec] p-2 font-mono text-[11px] text-[var(--ink)]">
+                              [[魏特夫《清史研究十六章总纲》]] ↔ [[满洲帝国的衰落手稿]]
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                              <span className="rounded border border-[var(--line)] bg-white px-2 py-0.5 text-[10px]">
+                                ① 原图 xywh 坐标
+                              </span>
+                              <span className="rounded border border-[var(--line)] bg-white px-2 py-0.5 text-[10px]">
+                                ② 考异长编 CMP-KAW-01
+                              </span>
+                              <span className="rounded border border-[var(--line)] bg-white px-2 py-0.5 text-[10px]">
+                                ③ 双向链接词条
+                              </span>
+                              <span className="rounded border border-[var(--line)] bg-white px-2 py-0.5 text-[10px]">
+                                ④ CHGIS 1820 坐标
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-[10px] border border-[var(--line-strong)] bg-white p-4 shadow-xs md:col-span-6">
+                          <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
+                            <span className="font-mono text-[10px] font-semibold text-[var(--ink)]">
+                              CHGIS V6 · 1820 历史地理落点
+                            </span>
+                            <span className="font-mono text-[10px] text-[#9b2c1f]">
+                              5 个核心点位已锚定
+                            </span>
+                          </div>
+                          <div className="mt-2.5 grid grid-cols-2 gap-2 text-[11px]">
+                            <div className="rounded border border-[var(--line)] bg-[#faf8f4] p-2">
+                              <div className="font-semibold text-[var(--ink)]">
+                                ● 北京（顺天府）
+                              </div>
+                              <div className="text-[10px] text-[var(--ink-muted)]">
+                                军机处 · 太和殿登基 (39.91°N)
+                              </div>
+                            </div>
+                            <div className="rounded border border-[var(--line)] bg-[#faf8f4] p-2">
+                              <div className="font-semibold text-[var(--ink)]">
+                                ● 清江浦（南河总督）
+                              </div>
+                              <div className="text-[10px] text-[var(--ink-muted)]">
+                                治河糜费与运河枢纽 (33.58°N)
+                              </div>
+                            </div>
+                            <div className="rounded border border-[var(--line)] bg-[#faf8f4] p-2">
+                              <div className="font-semibold text-[var(--ink)]">
+                                ● 扬州 / 江宁府
+                              </div>
+                              <div className="text-[10px] text-[var(--ink-muted)]">
+                                乾隆南巡 · 曹雪芹故里
+                              </div>
+                            </div>
+                            <div className="rounded border border-[var(--line)] bg-[#faf8f4] p-2">
+                              <div className="font-semibold text-[var(--ink)]">
+                                ● 上海 / 盛京
+                              </div>
+                              <div className="text-[10px] text-[var(--ink-muted)]">
+                                官督商办 · 八旗龙兴地
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 画幅底部极简控制栏（场景切换圆点 + MP4载入 + 立即跳转） */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--line)]/80 pt-3">
+                    <div className="flex items-center gap-1.5">
+                      {HERO_SCENES.map((s, idx) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => {
+                            setActiveScene(idx);
+                            setIsPlaying(false);
+                          }}
+                          className={`rounded-full px-2.5 py-0.5 font-mono text-[11px] transition ${
+                            idx === activeScene
+                              ? 'bg-[var(--ink)] font-semibold text-white'
+                              : 'bg-[#f0ece1] text-[var(--ink-secondary)] hover:bg-[#e5dfd0]'
+                          }`}
+                        >
+                          0{idx + 1}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setIsPlaying((p) => !p)}
+                        className="ml-1 rounded-full border border-[var(--line)] bg-white px-2.5 py-0.5 text-[11px] text-[var(--ink-muted)] hover:text-[var(--ink)]"
+                      >
+                        {isPlaying ? '❚❚' : '▶'}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        ref={videoFileInputRef}
+                        type="file"
+                        accept="video/mp4,video/webm"
+                        onChange={handleVideoUpload}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => videoFileInputRef.current?.click()}
+                        className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[11px] text-[var(--ink-secondary)] hover:border-[var(--ink)] hover:text-[var(--ink)]"
+                      >
+                        载入演示视频 (MP4)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate(scene.route)}
+                        className="rounded-full bg-[#9b2c1f] px-3.5 py-1 text-[11px] font-medium text-white hover:bg-[#7e2217]"
+                      >
+                        进入该场景模块 →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ─── 画幅正下方：左文右图双栏核心能力区（对应参考图 1 下半部分） ─── */}
+          <div className="mx-auto mt-10 max-w-5xl rounded-[16px] border border-[var(--line)] bg-[#f1ede4]/85 p-6 sm:p-10">
+            <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-12">
+              {/* 左栏：标题 + 简述 + 3行可切换特性条 */}
+              <div className="lg:col-span-5">
+                <h2 className="font-serif text-xl font-semibold text-[var(--ink)]">
+                  多模态手稿与全格式兼容
+                </h2>
+                <p className="mt-2 text-xs leading-relaxed text-[var(--ink-secondary)]">
+                  PDF 扫描卷、JPG 单页、海外馆藏目录、打字机底稿与手写铅笔批注一站式解析，让智能体直接读取“证据级”干净文本与像素坐标。
+                </p>
+
+                <div className="mt-5 divide-y divide-[var(--line-strong)]/60 border-t border-b border-[var(--line-strong)]/60">
+                  {[
+                    {
+                      title: '跨页提纲与双层手迹自动剥离',
+                      desc: '精准分离魏特夫 Box 9 打字大纲与 Box 66 铅笔行间改写、顶批签名',
+                    },
+                    {
+                      title: '保留原件图像坐标与三级核验上下文',
+                      desc: '每一处识读均绑定 xywh 像素框与 ○目录 / ●样例 / ★原件 核验状态',
+                    },
+                    {
+                      title: '原生融入主流 Agent 与外部 MCP 协议',
+                      desc: '内置 OpenAlex、Wikipedia、CHGIS 1820、CBDB 与 Zotero 实时连接器',
+                    },
+                  ].map((feat, idx) => (
+                    <div
+                      key={feat.title}
+                      onClick={() => setActiveFeatureIdx(idx)}
+                      className={`cursor-pointer py-3 transition ${
+                        activeFeatureIdx === idx
+                          ? 'text-[var(--ink)]'
+                          : 'text-[var(--ink-muted)] hover:text-[var(--ink-secondary)]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-xs font-semibold">
+                        <span>{feat.title}</span>
+                        <span className="font-mono text-[10px] text-[#9b2c1f]">
+                          {activeFeatureIdx === idx ? '●' : '○'}
+                        </span>
+                      </div>
+                      {activeFeatureIdx === idx && (
+                        <p className="mt-1 text-[11px] leading-relaxed text-[var(--ink-secondary)]">
+                          {feat.desc}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 右栏：白底悬浮文件标签卡片（对应参考图 1 右下白底悬浮窗） */}
+              <div className="lg:col-span-7">
+                <div className="relative overflow-hidden rounded-[12px] border border-[var(--line-strong)] bg-[#fcfaf5] p-6 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#9b2c1f]/80" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-amber-600/70" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-emerald-700/70" />
+                      <span className="ml-2 font-serif text-xs font-semibold text-[var(--ink)]">
+                        未刊档案与多源知识流 ——{' '}
+                        <span className="text-[#9b2c1f]">一网打尽</span>
+                      </span>
+                    </div>
+                    <span className="font-mono text-[10px] text-[var(--ink-muted)]">
+                      IndexedDB + MCP Ready
+                    </span>
+                  </div>
+
+                  {/* 错落有致的档案与数据流浮动卡 */}
+                  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div
+                      onClick={() => navigate('/reader')}
+                      className="cursor-pointer rounded-[8px] border border-[var(--line)] bg-white p-3 shadow-2xs transition hover:-translate-y-0.5 hover:border-[var(--ink)]"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="rounded bg-[#9b2c1f] px-1.5 py-0.5 font-mono text-[10px] font-bold text-white">
+                          BOX 9
+                        </span>
+                        <span className="font-serif text-xs font-semibold text-[var(--ink)]">
+                          CHING OUTLINE (7 Pages)
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-[var(--ink-secondary)]">
+                        满汉二元农牧 · 军屯 · 抄家财政 · 荒政中饱 · 猛安谋克至八旗
+                      </p>
+                    </div>
+
+                    <div
+                      onClick={() => navigate('/proofread')}
+                      className="cursor-pointer rounded-[8px] border border-[var(--line)] bg-white p-3 shadow-2xs transition hover:-translate-y-0.5 hover:border-[var(--ink)]"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="rounded bg-[#1f1b17] px-1.5 py-0.5 font-mono text-[10px] font-bold text-white">
+                          BOX 66
+                        </span>
+                        <span className="font-serif text-xs font-semibold text-[var(--ink)]">
+                          Decline of Manchu Empire (21 Pages)
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-[var(--ink-secondary)]">
+                        溥仪登基改订载沣 · 军机处 · 和珅八亿两 · 官督商办 · 胡适红学批注
+                      </p>
+                    </div>
+
+                    <div
+                      onClick={() => navigate('/agent')}
+                      className="cursor-pointer rounded-[8px] border border-[var(--line)] bg-white p-3 shadow-2xs transition hover:-translate-y-0.5 hover:border-[var(--ink)]"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="rounded bg-amber-800 px-1.5 py-0.5 font-mono text-[10px] font-bold text-white">
+                          MCP
+                        </span>
+                        <span className="font-serif text-xs font-semibold text-[var(--ink)]">
+                          OpenAlex + CHGIS + CBDB
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-[var(--ink-secondary)]">
+                        实时检索全球汉学论文 DOI、清代人物传记与 1820 历史地理坐标
+                      </p>
+                    </div>
+
+                    <div
+                      onClick={() => navigate('/wiki')}
+                      className="cursor-pointer rounded-[8px] border border-[var(--line)] bg-white p-3 shadow-2xs transition hover:-translate-y-0.5 hover:border-[var(--ink)]"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="rounded bg-emerald-800 px-1.5 py-0.5 font-mono text-[10px] font-bold text-white">
+                          WIKI
+                        </span>
+                        <span className="font-serif text-xs font-semibold text-[var(--ink)]">
+                          nashsu/llm_wiki 知识编译
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-[var(--ink-secondary)]">
+                        四级证据链 · Cytoscape 关系网 · 两步思维链摄取 · Wiki Lint 巡检
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            第二屏：功能专题展示 Bento Grid（严格学习参考图 2 的层次结构，保持宣纸墨色美学）
+           ═══════════════════════════════════════════════════════════════════ */}
+        <section className="mt-20">
+          {/* 专题一标题 */}
+          <div className="text-center">
+            <div className="font-mono text-[11px] tracking-widest text-[var(--ink-muted)] uppercase">
+              FEATURE SHOWCASE I · MACHINE-READABLE MANUSCRIPT EXTRACTION
+            </div>
+            <h2 className="mt-1.5 font-serif text-2xl font-semibold text-[var(--ink)] sm:text-3xl">
+              未刊手稿的机器可读与双层结构化提取
+            </h2>
+          </div>
+
+          {/* 专题一：左右对称双大卡（文字要点在上 + 叠层原件与引出框在下，完全对应参考图 2 上半部） */}
+          <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {/* 左卡：提纲与目录智能还原 */}
+            <div
+              onClick={() => navigate('/workbench')}
+              className="group flex cursor-pointer flex-col justify-between rounded-[16px] border border-[var(--line-strong)] bg-[#f4f1e8] p-6 transition hover:border-[var(--ink)] hover:shadow-md sm:p-7"
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-serif text-lg font-semibold text-[var(--ink)] group-hover:text-[#9b2c1f]">
+                    馆藏提纲智能还原与七级编目结构化
+                  </h3>
+                  <span className="font-mono text-xs text-[var(--ink-muted)]">
+                    1.1 &amp; 1.2 →
+                  </span>
+                </div>
+                <ul className="mt-3 list-disc space-y-1.5 pl-4 text-xs leading-relaxed text-[var(--ink-secondary)]">
+                  <li>
+                    攻克海外打字提纲跨页罗马数字章节、手写下划线与缩进层级，消除 AI 对复杂档案目录的阅读障碍
+                  </li>
+                  <li>
+                    输出 EAD 七级目录树、150字三段式内容摘记与 JSON/CSV 机器可读格式，无缝接入后续考据流
+                  </li>
+                </ul>
+              </div>
+
+              {/* 下方叠层原件标注微缩窗口（Box 9 CHING OUTLINE） */}
+              <div className="relative mt-6 rounded-[10px] border border-[var(--line-strong)] bg-[#fcfaf5] p-4 shadow-xs">
+                <div className="grid grid-cols-12 items-center gap-3">
+                  {/* 原件窗口 */}
+                  <div className="col-span-6 overflow-hidden rounded-[6px] border border-[var(--line-strong)] bg-white shadow-2xs">
+                    <div className="bg-[#1f1b17] px-2.5 py-1 font-mono text-[9px] text-white">
+                      Box 9, Folder 2 · CHING OUTLINE
+                    </div>
+                    <img
+                      src="/iiif-samples/wittfogel-box9-f2_p0002.jpg"
+                      alt="Wittfogel Box 9 Outline"
+                      className="h-44 w-full object-cover object-top"
+                    />
+                  </div>
+
+                  {/* 引出结构化卡片（对应参考图2中的白底弹出小卡） */}
+                  <div className="col-span-6 space-y-2">
+                    <div className="rounded-[6px] border border-[#9b2c1f]/40 bg-white p-2.5 shadow-2xs">
+                      <div className="font-mono text-[9px] font-bold text-[#9b2c1f]">
+                        II. AGRICULTURE &amp; PASTORALISM
+                      </div>
+                      <div className="mt-0.5 text-[11px] font-medium text-[var(--ink)]">
+                        1. Double roots: Manchu and Chinese
+                      </div>
+                      <div className="text-[10px] text-[var(--ink-muted)]">
+                        4.b. Military settlements (conquerors) 圈地与军屯
+                      </div>
+                    </div>
+
+                    <div className="rounded-[6px] border border-[var(--line-strong)] bg-white p-2.5 shadow-2xs">
+                      <div className="font-mono text-[9px] font-bold text-[var(--ink)]">
+                        XII. CALAMITIES &amp; RELIEF (p.6)
+                      </div>
+                      <div className="mt-0.5 text-[11px] font-medium text-[var(--ink)]">
+                        B.3 Granaries 常平仓 / B.7 Relief as a racket
+                      </div>
+                    </div>
+
+                    <div className="rounded-[6px] border border-[var(--line-strong)] bg-white p-2.5 shadow-2xs">
+                      <div className="font-mono text-[9px] font-bold text-[var(--ink)]">
+                        XV. ARMY &amp; WARFARE (p.7)
+                      </div>
+                      <div className="mt-0.5 text-[11px] font-medium text-[#9b2c1f]">
+                        2. mêng-an, mo-k&apos;o; banners (猛安谋克→八旗)
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* 画幅主体：若用户载入了本地 MP4 视频则直接无黑框播放；否则展示清爽的白底工作流画幅 */}
-            {customVideoUrl ? (
-              <div className="aspect-video w-full bg-[#faf8f4]">
-                <video
-                  src={customVideoUrl}
-                  controls
-                  autoPlay
-                  loop
-                  className="h-full w-full object-contain"
-                />
+            {/* 右卡：双层手迹解耦转化为标准校勘码 */}
+            <div
+              onClick={() => navigate('/proofread')}
+              className="group flex cursor-pointer flex-col justify-between rounded-[16px] border border-[var(--line-strong)] bg-[#f4f1e8] p-6 transition hover:border-[var(--ink)] hover:shadow-md sm:p-7"
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-serif text-lg font-semibold text-[var(--ink)] group-hover:text-[#9b2c1f]">
+                    双层手迹解耦与行句辅助校订
+                  </h3>
+                  <span className="font-mono text-xs text-[var(--ink-muted)]">
+                    1.3 →
+                  </span>
+                </div>
+                <ul className="mt-3 list-disc space-y-1.5 pl-4 text-xs leading-relaxed text-[var(--ink-secondary)]">
+                  <li>
+                    强力解析打字机初稿、审稿人铅笔行间增删、页眉签名批注与页脚学者互证标记
+                  </li>
+                  <li>
+                    输出行句级双向高亮对照、自动标点与学术汉译，为史料雷达与推理大模型提供标准证据输入
+                  </li>
+                </ul>
               </div>
-            ) : (
-              <div className="grid min-h-[420px] grid-cols-1 lg:grid-cols-12">
-                {/* 左侧：原件图像与行句辅助锚定画布 (6 Cols) */}
-                <div className="flex flex-col justify-between border-b border-[var(--line)] bg-[#f7f4ec] p-6 lg:col-span-6 lg:border-r lg:border-b-0">
-                  <div className="flex items-center justify-between font-mono text-[11px] text-[var(--ink-muted)]">
-                    <span>档案样本：Harvard-Yenching Box 12, Folder 1</span>
-                    <span>核验状态：★ 原件已核</span>
-                  </div>
 
-                  <div className="relative my-4 overflow-hidden rounded-[4px] border border-[var(--line-strong)] bg-white shadow-xs">
+              {/* 下方叠层原件标注微缩窗口（Box 66 Decline of Manchu Empire） */}
+              <div className="relative mt-6 rounded-[10px] border border-[var(--line-strong)] bg-[#fcfaf5] p-4 shadow-xs">
+                <div className="grid grid-cols-12 items-center gap-3">
+                  {/* 原件窗口 */}
+                  <div className="col-span-6 overflow-hidden rounded-[6px] border border-[var(--line-strong)] bg-white shadow-2xs">
+                    <div className="bg-[#9b2c1f] px-2.5 py-1 font-mono text-[9px] text-white">
+                      Box 66, Folder 7 · Decline of Manchu Empire
+                    </div>
                     <img
-                      src="/iiif-samples/wu-box12-f1_p0003.jpg"
-                      alt="未刊清史手稿样本"
-                      className="h-64 w-full object-cover object-top"
+                      src="/iiif-samples/wittfogel-box66-f7_p0011.jpg"
+                      alt="Wittfogel Box 66 Page 11"
+                      className="h-44 w-full object-cover object-top"
                     />
-                    {/* 区域/行句辅助框示意 */}
-                    <div
-                      className={`absolute top-[14%] left-[7%] h-[20%] w-[85%] rounded-[2px] border-2 transition-all duration-500 ${
-                        activeStage === 0 || activeStage === 1
-                          ? 'border-[#1f1b17] bg-[#1f1b17]/10 shadow-xs'
-                          : 'border-sky-600/50 bg-sky-500/5'
-                      }`}
-                    >
-                      <span className="absolute -top-4 left-0 rounded bg-[#1f1b17] px-1.5 py-0.2 font-mono text-[9px] text-white">
-                        #01 打字底稿区 xywh=(198,350,2030,560)
-                      </span>
-                    </div>
-
-                    <div
-                      className={`absolute top-[44%] left-[7%] h-[34%] w-[85%] rounded-[2px] border-2 transition-all duration-500 ${
-                        activeStage >= 1
-                          ? 'border-[#9b2c1f] bg-[#9b2c1f]/15 shadow-xs'
-                          : 'border-amber-600/40 bg-amber-500/5'
-                      }`}
-                    >
-                      <span className="absolute -top-4 left-0 rounded bg-[#9b2c1f] px-1.5 py-0.2 font-mono text-[9px] text-white">
-                        #02 审稿人手写改写层 · 概念偏移敏感区
-                      </span>
-                    </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-[var(--ink-secondary)]">
-                    <span>定位粒度：图像证据区域框选 + 行句级辅助对齐</span>
-                    <span className="font-mono text-[var(--seal)]">
-                      Pixel-to-Wiki Traceable
-                    </span>
+                  {/* 引出批注卡片 */}
+                  <div className="col-span-6 space-y-2">
+                    <div className="rounded-[6px] border border-[#9b2c1f]/40 bg-white p-2.5 shadow-2xs">
+                      <div className="font-mono text-[9px] font-bold text-[#9b2c1f]">
+                        PENCIL MARGINALIA · 叶十一顶批
+                      </div>
+                      <div className="mt-0.5 font-mono text-[11px] font-semibold text-[var(--ink)]">
+                        &ldquo;Criticism of T&apos;an - K.A.W.!&rdquo;
+                      </div>
+                      <div className="text-[10px] text-[var(--ink-muted)]">
+                        魏特夫亲笔要求补入对谭嗣同之评析
+                      </div>
+                    </div>
+
+                    <div className="rounded-[6px] border border-[var(--line-strong)] bg-white p-2.5 shadow-2xs">
+                      <div className="font-mono text-[9px] font-bold text-[var(--ink)]">
+                        INTERLINEAR REVISION · 叶三改订
+                      </div>
+                      <div className="mt-0.5 text-[11px] font-medium text-[var(--ink)]">
+                        Prince Regent:{' '}
+                        <span className="line-through text-red-700">Tsai-li</span>{' '}
+                        → <span className="font-bold text-[#9b2c1f]">Tsai-feng</span>
+                      </div>
+                    </div>
+
+                    <div className="rounded-[6px] border border-[var(--line-strong)] bg-white p-2.5 shadow-2xs">
+                      <div className="font-mono text-[9px] font-bold text-[var(--ink)]">
+                        SCHOLARLY CROSS-REF · 叶十七页脚
+                      </div>
+                      <div className="mt-0.5 text-[11px] font-medium text-[#9b2c1f]">
+                        Dream of the Red Chamber → &ldquo;/ cf. Dr. Hu!&rdquo;
+                      </div>
+                    </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
 
-                {/* 右侧：随四步切换的实时处理视图 (6 Cols) */}
-                <div className="flex flex-col justify-between bg-white p-6 lg:col-span-6">
-                  <div>
-                    <div className="inline-block rounded-[2px] bg-[#9b2c1f]/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-[#9b2c1f]">
-                      {currentStage.subtitle}
-                    </div>
-                    <h2 className="mt-2 font-serif text-xl font-semibold text-[var(--ink)]">
-                      {currentStage.title}
-                    </h2>
-                    <p className="mt-1.5 text-xs leading-relaxed text-[var(--ink-secondary)]">
-                      {currentStage.summary}
-                    </p>
+          {/* ─── 专题二：大容器包裹的“左一高卡 + 右二横卡” Bento 布局（严格对应参考图 2 下半部） ─── */}
+          <div className="mt-10 rounded-[20px] border border-[var(--line-strong)] bg-[#f1ede4] p-6 sm:p-8">
+            {/* 顶部标题栏 + 右侧联动链接 */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-serif text-2xl font-semibold text-[var(--ink)]">
+                  深度史料考据与多维知识生产
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={handleLoadWittfogelDemo}
+                className="font-serif text-xs font-medium text-[#9b2c1f] hover:underline"
+              >
+                携手魏特夫 Box 9 &amp; Box 66 实测卷宗，赋能清史科研突破，立即体验！ ↗
+              </button>
+            </div>
 
-                    {/* 各阶段对应的真实数据卡片预览 */}
-                    <div className="mt-5 rounded-[4px] border border-[var(--line)] bg-[#faf8f4] p-4">
-                      {activeStage === 0 && (
-                        <div className="space-y-2 text-xs">
-                          <div className="flex items-center justify-between border-b border-[var(--line)] pb-1.5 font-mono text-[11px] text-[var(--ink-muted)]">
-                            <span>EAD LEVEL: FOLDER (文件夹级)</span>
-                            <span className="text-emerald-700">
-                              ★ 原件已核 (original_verified)
-                            </span>
-                          </div>
-                          <div className="font-serif font-semibold text-[var(--ink)]">
-                            原馆题名：Draft chapters on Khalkha Mongolia &amp;
-                            Treaty of Nerchinsk
-                          </div>
-                          <div className="text-[var(--ink-secondary)]">
-                            <strong>150字三段摘记：</strong>
-                            【核心主题】康熙二十八至三十年尼布楚界务与多伦诺尔会盟英译底稿；【涉及制度】理藩院则例、满蒙联姻与喀尔喀三汗封爵；【文献形态】含打字机初稿及红墨水行间删改批注14处。
-                          </div>
-                        </div>
-                      )}
-
-                      {activeStage === 1 && (
-                        <div className="space-y-2.5 text-xs">
-                          <div className="rounded border border-[var(--line)] bg-white p-2.5">
-                            <span className="mr-2 rounded bg-[#1f1b17] px-1.5 py-0.5 font-mono text-[10px] text-white">
-                              #01 底稿层
-                            </span>
-                            <span className="font-mono text-[var(--ink-secondary)] line-through">
-                              The Khalkha Khans offered voluntary tribute...
-                            </span>
-                          </div>
-                          <div className="rounded border border-[#9b2c1f]/40 bg-[#9b2c1f]/5 p-2.5">
-                            <span className="mr-2 rounded bg-[#9b2c1f] px-1.5 py-0.5 font-mono text-[10px] text-white">
-                              #02 校订层
-                            </span>
-                            <span className="font-serif font-medium text-[var(--ink)]">
-                              手写改作：submission under Qing military protection
-                              at Dolon Nor (1691)
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-[var(--ink-muted)]">
-                            说明：支持区域框选与行句级双向高亮对照，辅助人工校勘、断句标点与地名坐标提取。
-                          </div>
-                        </div>
-                      )}
-
-                      {activeStage === 2 && (
-                        <div className="space-y-2.5 text-xs">
-                          <div className="flex items-center justify-between">
-                            <span className="font-serif font-semibold text-[#9b2c1f]">
-                              🧭 史学盲区探针与选题假说自发现
-                            </span>
-                            <span className="font-mono text-[11px] font-bold text-[var(--ink)]">
-                              五维综合潜力 95/100
-                            </span>
-                          </div>
-                          <div className="rounded border border-[var(--line)] bg-white p-2.5">
-                            <div className="font-semibold text-[var(--ink)]">
-                              发现盲区：理藩院笔帖式与边疆通事的译词裁量权
-                            </div>
-                            <p className="mt-1 text-[var(--ink-secondary)]">
-                              对比《圣武纪》母本与汉学家未刊稿，揭示西方学者将清廷“恩威并施之会盟”置换为近代殖民宗主权（Suzerainty）的概念偏移。
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {activeStage === 3 && (
-                        <div className="space-y-2 text-xs">
-                          <div className="flex items-center justify-between font-mono text-[11px] text-[var(--ink-muted)]">
-                            <span>CHGIS V6 · 1820 历史政区叠加</span>
-                            <span>WIKI: [[多伦诺尔会盟]]</span>
-                          </div>
-                          <div className="rounded border border-[var(--line)] bg-white p-2.5">
-                            <div className="font-serif font-semibold text-[var(--ink)]">
-                              空间落点：多伦诺尔厅 (42.18°N, 116.47°E) ·
-                              恰克图互市圈
-                            </div>
-                            <p className="mt-1 text-[var(--ink-secondary)]">
-                              自动关联 1820 年清代府州厅县矢量边界，生成使团行进路线、频次热力图与多模态知识图谱节点。
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+            {/* 左 1 高卡 + 右 2 叠卡 Bento Grid */}
+            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
+              {/* 左侧高卡（占 5 列）：五维史料雷达与中国立场审定 */}
+              <div
+                onClick={() => navigate('/radar?mode=radar')}
+                className="group flex cursor-pointer flex-col justify-between rounded-[14px] border border-[var(--line)] bg-[#fcfaf5] p-6 shadow-2xs transition hover:border-[var(--ink)] hover:shadow-sm lg:col-span-5"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-serif text-lg font-semibold text-[var(--ink)] group-hover:text-[#9b2c1f]">
+                      五维史料雷达与中国立场审定
+                    </h3>
+                    <span className="rounded bg-[#9b2c1f]/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-[#9b2c1f]">
+                      2.1 · 2.3 · 2.4
+                    </span>
                   </div>
+                  <ul className="mt-3 list-disc space-y-1.5 pl-4 text-xs leading-relaxed text-[var(--ink-secondary)]">
+                    <li>
+                      精确剥离一手孤本手稿与晚清野史二手转引（如和珅八亿两传闻）
+                    </li>
+                    <li>
+                      自主探寻常态阅读易忽略的“抄家财政（Confiscations）”与“荒政中饱”盲区
+                    </li>
+                    <li>
+                      识别“征服王朝二元论”概念预设，以清代多民族大一统史观生成审定按语
+                    </li>
+                  </ul>
+                </div>
 
-                  {/* 画幅底部 4 步切换器 */}
-                  <div className="mt-5 grid grid-cols-4 gap-2 border-t border-[var(--line)] pt-3">
-                    {WORKFLOW_STAGES.map((st, idx) => (
-                      <button
-                        key={st.id}
-                        type="button"
-                        onClick={() => {
-                          setActiveStage(idx);
-                          setIsPlaying(false);
-                        }}
-                        className={`rounded-[3px] border px-2.5 py-2 text-left transition ${
-                          idx === activeStage
-                            ? 'border-[var(--ink)] bg-[var(--ink)] text-white'
-                            : 'border-[var(--line)] bg-[#faf8f4] text-[var(--ink-secondary)] hover:border-[var(--ink)]'
-                        }`}
+                {/* 底部可视化微缩图 */}
+                <div className="mt-6 rounded-[10px] border border-[var(--line)] bg-white p-4">
+                  <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
+                    <span className="font-mono text-[10px] font-bold text-[var(--ink)]">
+                      RADAR SCORE: 95.4 / 100
+                    </span>
+                    <span className="font-mono text-[10px] text-[#9b2c1f]">
+                      ★ 一手孤本手稿
+                    </span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-5 items-end gap-2 pt-2 text-center">
+                    {[
+                      { label: '制度异文', h: 'h-20', val: '96' },
+                      { label: '隐蔽盲区', h: 'h-24', val: '98' },
+                      { label: '概念纠偏', h: 'h-18', val: '94' },
+                      { label: '母本考异', h: 'h-16', val: '92' },
+                      { label: '选题潜力', h: 'h-22', val: '97' },
+                    ].map((bar) => (
+                      <div
+                        key={bar.label}
+                        className="flex flex-col items-center"
                       >
-                        <div className="font-mono text-[10px] opacity-80">
-                          0{idx + 1}
+                        <span className="font-mono text-[10px] font-semibold text-[#9b2c1f]">
+                          {bar.val}
+                        </span>
+                        <div className="mt-1 flex h-24 w-full items-end justify-center rounded bg-[#f4f1e8] p-1">
+                          <div
+                            className={`w-full rounded-t bg-[#1f1b17] transition-all group-hover:bg-[#9b2c1f] ${bar.h}`}
+                          />
                         </div>
-                        <div className="mt-0.5 truncate font-serif text-xs font-semibold">
-                          {st.title.slice(0, 6)}
-                        </div>
-                      </button>
+                        <span className="mt-1.5 text-[10px] text-[var(--ink-secondary)]">
+                          {bar.label}
+                        </span>
+                      </div>
                     ))}
                   </div>
                 </div>
               </div>
-            )}
+
+              {/* 右侧上下两张横卡（占 7 列） */}
+              <div className="flex flex-col justify-between gap-6 lg:col-span-7">
+                {/* 右上横卡：司马光《通鉴考异》长编 */}
+                <div
+                  onClick={() => navigate('/radar?mode=changbian')}
+                  className="group grid cursor-pointer grid-cols-1 items-center gap-5 rounded-[14px] border border-[var(--line)] bg-[#fcfaf5] p-6 shadow-2xs transition hover:border-[var(--ink)] hover:shadow-sm sm:grid-cols-12"
+                >
+                  <div className="sm:col-span-6">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-serif text-lg font-semibold text-[var(--ink)] group-hover:text-[#9b2c1f]">
+                        《通鉴考异》三方对读长编
+                      </h3>
+                      <span className="rounded bg-[#1f1b17] px-1.5 py-0.5 font-mono text-[9px] text-white">
+                        2.2
+                      </span>
+                    </div>
+                    <ul className="mt-3 list-disc space-y-1.5 pl-4 text-xs leading-relaxed text-[var(--ink-secondary)]">
+                      <li>
+                        精确比对《清实录》母本、魏特夫未刊手稿与已刊专著三方异同
+                      </li>
+                      <li>
+                        自动纂修【长编正文】【考异】【价值按语】标准史学文本
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="rounded-[8px] border border-[var(--line-strong)] bg-white p-3.5 shadow-2xs sm:col-span-6">
+                    <div className="flex items-center justify-between border-b border-[var(--line)] pb-1.5 font-mono text-[9px] text-[var(--ink-muted)]">
+                      <span>CMP-KAW-01 · 跨卷互证</span>
+                      <span className="text-[#9b2c1f]">Box 9 × Box 66</span>
+                    </div>
+                    <div className="mt-2 space-y-1.5 text-[11px]">
+                      <div className="rounded bg-[#f7f4ec] px-2 py-1 text-[var(--ink)]">
+                        <strong>母本：</strong>《清朝文献通考》八旗牛录与驻防建制
+                      </div>
+                      <div className="rounded bg-[#9b2c1f]/10 px-2 py-1 text-[#9b2c1f]">
+                        <strong>未刊稿：</strong>mêng-an, mo-k&apos;o; banners + / cf. Dr. Hu!
+                      </div>
+                      <div className="rounded bg-[#f7f4ec] px-2 py-1 text-[var(--ink-secondary)]">
+                        <strong>考异结论：</strong>揭示手稿内“二元对立”与“满汉交融”之张力
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 右下横卡：全局知识关联（LLM Wiki + 1820 图谱 + Agent 协同） */}
+                <div
+                  onClick={() => navigate('/wiki')}
+                  className="group grid cursor-pointer grid-cols-1 items-center gap-5 rounded-[14px] border border-[var(--line)] bg-[#fcfaf5] p-6 shadow-2xs transition hover:border-[var(--ink)] hover:shadow-sm sm:grid-cols-12"
+                >
+                  <div className="sm:col-span-6">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-serif text-lg font-semibold text-[var(--ink)] group-hover:text-[#9b2c1f]">
+                        全局知识图谱与时空关联
+                      </h3>
+                      <span className="rounded bg-[#9b2c1f] px-1.5 py-0.5 font-mono text-[9px] text-white">
+                        3.1 · 3.2 · 4.0
+                      </span>
+                    </div>
+                    <ul className="mt-3 list-disc space-y-1.5 pl-4 text-xs leading-relaxed text-[var(--ink-secondary)]">
+                      <li>
+                        提取手稿中的人物、官制、地名标识符，构建 Cytoscape 全局关系网
+                      </li>
+                      <li>
+                        复刻 nashsu/llm_wiki 两步思维链摄取与 Wiki Lint 断链巡检
+                      </li>
+                      <li>
+                        获得「原图坐标 ↔ 考异长编 ↔ Wiki 词条 ↔ 1820 地图」交错证据链
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="rounded-[8px] border border-[var(--line-strong)] bg-white p-3.5 shadow-2xs sm:col-span-6">
+                    <div className="flex items-center justify-between font-mono text-[9px] text-[var(--ink-muted)]">
+                      <span>GRAPH VIEW &amp; EVIDENCE CHAIN</span>
+                      <span className="text-emerald-700">6 Nodes Linked</span>
+                    </div>
+                    <div className="mt-2.5 flex items-center justify-between gap-2">
+                      <div className="flex-1 space-y-1.5">
+                        <div className="rounded border border-[var(--line)] bg-[#faf8f4] px-2 py-1 font-mono text-[10px] text-[var(--ink)]">
+                          [[清代抄家财政与荒政中饱]]
+                        </div>
+                        <div className="rounded border border-[var(--line)] bg-[#faf8f4] px-2 py-1 font-mono text-[10px] text-[var(--ink)]">
+                          [[猛安谋克与八旗驻防体制]]
+                        </div>
+                        <div className="rounded border border-[var(--line)] bg-[#faf8f4] px-2 py-1 font-mono text-[10px] text-[var(--ink)]">
+                          [[官督商办与晚清工业化]]
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-center gap-1 rounded-[6px] border border-[#9b2c1f]/30 bg-[#9b2c1f]/5 px-2.5 py-2 text-center">
+                        <span className="font-mono text-[9px] font-bold text-[#9b2c1f]">
+                          CHGIS 1820
+                        </span>
+                        <span className="text-[10px] font-semibold text-[var(--ink)]">
+                          北京 · 清江浦
+                        </span>
+                        <span className="text-[10px] text-[var(--ink-secondary)]">
+                          扬州 · 上海
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* ─── 3. 画幅下方介绍区一：四大核心研究模块详解 ─── */}
-        <section className="mt-14">
-          <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[var(--line-strong)] pb-3">
-            <div>
-              <div className="font-mono text-[11px] tracking-widest text-[var(--ink-muted)] uppercase">
-                RESEARCH PIPELINE &amp; CORE MODULES
-              </div>
-              <h2 className="mt-1 font-serif text-2xl font-semibold text-[var(--ink)]">
-                全链路数智考据工作台架构
-              </h2>
-            </div>
-            <span className="text-xs text-[var(--ink-secondary)]">
-              从原始扫描件入库到历史地理图谱的闭环求证
-            </span>
-          </div>
-
-          <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
-            {WORKFLOW_STAGES.map((stage, i) => (
-              <div
-                key={stage.id}
-                onClick={() => navigate(stage.route)}
-                className="group flex cursor-pointer flex-col justify-between rounded-[4px] border border-[var(--line)] bg-[var(--sheet)] p-5 transition hover:border-[var(--ink)] hover:shadow-xs"
-              >
-                <div>
-                  <div className="flex items-center justify-between font-mono text-[11px] text-[var(--ink-muted)]">
-                    <span>MODULE 0{i + 1}</span>
-                    <span className="text-[var(--seal)]">→</span>
-                  </div>
-                  <h3 className="mt-2 font-serif text-base font-semibold text-[var(--ink)] group-hover:text-[var(--seal)]">
-                    {stage.title}
-                  </h3>
-                  <div className="mt-1 font-mono text-[11px] text-[var(--ink-muted)]">
-                    {stage.subtitle}
-                  </div>
-                  <p className="mt-3 text-xs leading-relaxed text-[var(--ink-secondary)]">
-                    {stage.summary}
-                  </p>
+        {/* ═══════════════════════════════════════════════════════════════════
+            第三屏：本地 Git 版本日志与 Plan & Goal 持续推进状态栏
+           ═══════════════════════════════════════════════════════════════════ */}
+        <section id="git-changelog" className="mt-16">
+          <div className="rounded-[16px] border border-[var(--line-strong)] bg-[#fcfaf5] p-6 sm:p-8">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
+              <div>
+                <div className="font-mono text-[10px] tracking-widest text-[#9b2c1f] uppercase">
+                  LOCAL GIT CHANGELOG &amp; CONTINUOUS PLAN
                 </div>
-                <div className="mt-4 border-t border-[var(--line)] pt-3 font-mono text-[11px] font-medium text-[var(--ink)]">
-                  进入模块 ({stage.route})
-                </div>
+                <h2 className="mt-1 font-serif text-xl font-semibold text-[var(--ink)]">
+                  本地 Git 演进日志与 Plan &amp; Goal 持续推进路线图
+                </h2>
               </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ─── 4. 画幅下方介绍区二：MCP 协议与 Agent Skills 领域技能底座 ─── */}
-        <section className="mt-14">
-          <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[var(--line-strong)] pb-3">
-            <div>
-              <div className="font-mono text-[11px] tracking-widest text-[var(--ink-muted)] uppercase">
-                MODEL CONTEXT PROTOCOL &amp; AGENT SKILLS
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-emerald-50 px-3 py-1 font-mono text-[11px] font-semibold text-emerald-800">
+                  ● branch: main (working tree tracked)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => navigate('/agent')}
+                  className="rounded-full border border-[var(--ink)] bg-[var(--ink)] px-3.5 py-1 text-xs font-medium text-white hover:bg-[#9b2c1f]"
+                >
+                  打开智能体协同台 →
+                </button>
               </div>
-              <h2 className="mt-1 font-serif text-2xl font-semibold text-[var(--ink)]">
-                内置 MCP 工具服务与清史领域 Agent Skills
-              </h2>
             </div>
-            <span className="font-mono text-xs text-[var(--seal)]">
-              已配置于 .agent/skills/ 与 backend/mcp_server.py
-            </span>
-          </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-            {AGENT_SKILLS_AND_MCP.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => navigate(item.route)}
-                className="cursor-pointer rounded-[4px] border border-[var(--line)] bg-[var(--sheet)] p-5 transition hover:border-[var(--ink)]"
-              >
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`rounded-[2px] px-2 py-0.5 font-mono text-[10px] font-semibold ${
-                      item.kind === 'Agent Skill'
-                        ? 'bg-[#1f1b17] text-white'
-                        : 'bg-[#9b2c1f] text-white'
-                    }`}
+            <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-12">
+              {/* 左侧：Git 提交记录 */}
+              <div className="space-y-3 lg:col-span-7">
+                <div className="font-mono text-xs font-semibold text-[var(--ink-secondary)]">
+                  最近 Git 提交记录 (CHANGELOG.md 同步记录)
+                </div>
+                {GIT_COMMIT_LOG.map((c) => (
+                  <div
+                    key={c.hash}
+                    className="rounded-[8px] border border-[var(--line)] bg-white p-3.5 shadow-2xs"
                   >
-                    {item.kind}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded bg-[#1f1b17] px-2 py-0.5 font-mono text-[10px] font-semibold text-white">
+                          {c.hash}
+                        </span>
+                        <span className="font-mono text-[11px] font-semibold text-[#9b2c1f]">
+                          {c.scope}
+                        </span>
+                      </div>
+                      <span className="font-mono text-[10px] text-[var(--ink-muted)]">
+                        {c.date}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-xs leading-relaxed text-[var(--ink-secondary)]">
+                      {c.msg}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {/* 右侧：Plan & Goal 阶段达成面板 */}
+              <div className="rounded-[10px] border border-[var(--line)] bg-[#f4f1e8] p-4 lg:col-span-5">
+                <div className="flex items-center justify-between">
+                  <span className="font-serif text-sm font-semibold text-[var(--ink)]">
+                    📋 Plan &amp; Goal 持续推进矩阵
                   </span>
-                  <span className="font-mono text-[11px] text-[var(--ink-muted)]">
-                    {item.path}
+                  <span className="font-mono text-[10px] text-[#9b2c1f]">
+                    PLAN_AND_GOAL.md
                   </span>
                 </div>
-                <h3 className="mt-2.5 font-serif text-base font-semibold text-[var(--ink)]">
-                  {item.title}
-                </h3>
-                <p className="mt-1.5 text-xs leading-relaxed text-[var(--ink-secondary)]">
-                  {item.desc}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
+                <div className="mt-3 space-y-2.5 text-xs">
+                  <div className="rounded bg-white p-2.5">
+                    <div className="flex items-center justify-between font-semibold text-emerald-800">
+                      <span>✓ Phase I：EAD 七级编目与双层手迹辅助校订</span>
+                      <span className="font-mono text-[10px]">DONE</span>
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-[var(--ink-secondary)]">
+                      支持三层分离编目、150字摘记、行句辅助框双向高亮与自动标点。
+                    </p>
+                  </div>
 
-        {/* ─── 5. 画幅下方介绍区三：文献价值发现与中国史学主体立场审定 ─── */}
-        <section className="mt-14 rounded-[4px] border border-[var(--line-strong)] bg-[var(--sheet)] p-6 sm:p-8">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <div>
-              <div className="font-mono text-[11px] text-[var(--seal)] uppercase">
-                PILLAR I · SOURCE CRITICISM
-              </div>
-              <h3 className="mt-1 font-serif text-lg font-semibold text-[var(--ink)]">
-                一手珍稀手稿 vs 二手转引甄别
-              </h3>
-              <p className="mt-2 text-xs leading-relaxed text-[var(--ink-secondary)]">
-                自动剥离西方汉学家未刊手稿中的原始档案摘抄、私人通信、行间删改与后期二手文献转引，避免将传教士或外交官的主观臆测误作清代实录史实。
-              </p>
-            </div>
+                  <div className="rounded bg-white p-2.5">
+                    <div className="flex items-center justify-between font-semibold text-emerald-800">
+                      <span>✓ Phase II：四子工作台考异与五维史料雷达</span>
+                      <span className="font-mono text-[10px]">DONE</span>
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-[var(--ink-secondary)]">
+                      独立拆分 2.1 价值甄别、2.2 考异长编、2.3 五维雷达、2.4 中国立场审定。
+                    </p>
+                  </div>
 
-            <div>
-              <div className="font-mono text-[11px] text-[var(--seal)] uppercase">
-                PILLAR II · CHINESE HISTORIOGRAPHICAL STANCE
+                  <div className="rounded bg-white p-2.5">
+                    <div className="flex items-center justify-between font-semibold text-emerald-800">
+                      <span>✓ Phase III：魏特夫 Box 9 &amp; Box 66 全链路实测示范</span>
+                      <span className="font-mono text-[10px]">ACTIVE</span>
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-[var(--ink-secondary)]">
+                      已完成 28 页档案提取、正向校准、8 处核心证据框选、3 篇跨卷考异与 5 篇 Wiki 词条编译。
+                    </p>
+                  </div>
+                </div>
               </div>
-              <h3 className="mt-1 font-serif text-lg font-semibold text-[var(--ink)]">
-                概念置换辨析与中国立场判断
-              </h3>
-              <p className="mt-2 text-xs leading-relaxed text-[var(--ink-secondary)]">
-                针对涉清边疆、朝贡礼制、理藩院治理及涉外条约手稿，利用五维雷达自动预警威斯特伐利亚殖民宗主话语对清代“大一统”治理概念的偷换与曲解。
-              </p>
-            </div>
-
-            <div>
-              <div className="font-mono text-[11px] text-[var(--seal)] uppercase">
-                PILLAR III · PIXEL-LEVEL PROVENANCE
-              </div>
-              <h3 className="mt-1 font-serif text-lg font-semibold text-[var(--ink)]">
-                从原图像素坐标到知识图谱的闭环
-              </h3>
-              <p className="mt-2 text-xs leading-relaxed text-[var(--ink-secondary)]">
-                严守“无出处不立论”的考据准则：平台产出的每一条《考异》长编、每一个 1820 地图坐标点与每一篇 Wiki 词条，均可一键回溯至原件扫描图的具体框选区域。
-              </p>
             </div>
           </div>
         </section>
