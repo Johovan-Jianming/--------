@@ -1,0 +1,54 @@
+{
+  "retrieved": "2026-10-22",
+  "items": [
+    {
+      "file": "rockhill-1903-loc-90708049.jpg",
+      "url": "https://cdn.loc.gov/service/pnp/cph/3b40000/3b45000/3b45500/3b45571r.jpg",
+      "record": "https://www.loc.gov/item/90708049/",
+      "rights_record": "https://commons.wikimedia.org/wiki/File:William_Woodville_Rockhill,_American_diplomat,_head-and-shoulders_portrait,_facing_left,_seated_at_desk_LCCN90708049.jpg",
+      "subject": "William Woodville Rockhill",
+      "date": "c1903",
+      "creator": "Photographer not identified in the consulted catalog entry",
+      "rights_basis": "Commons Public Domain Mark 1.0 / PD-old-70-expired; LoC points to collection rights guidance",
+      "note": "Native LoC JPEG derivative; Commons larger JPEG is marked upscale and is not used.",
+      "download_url": "https://upload.wikimedia.org/wikipedia/commons/archive/0/04/20190108041532%21William_Woodville_Rockhill%2C_American_diplomat%2C_head-and-shoulders_portrait%2C_facing_left%2C_seated_at_desk_LCCN90708049.jpg",
+      "sha256": "89070a58984aa0959847cbc292addd439225957ce2c97b8bd8bef10e1bad3229",
+      "bytes": 34576,
+      "width": 640,
+      "height": 474,
+      "status": "local-only-review-not-published"
+    },
+    {
+      "file": "robert-hart-loc-2014683527.jpg",
+      "url": "https://cdn.loc.gov/service/pnp/ggbain/03500/03533v.jpg",
+      "record": "https://www.loc.gov/pictures/item/2014683527/",
+      "rights_record": "https://commons.wikimedia.org/wiki/File:Sir_Robert_Hart,_seated_with_book_LCCN2014683527.jpg",
+      "subject": "Sir Robert Hart, seated with book",
+      "date": "Not established from consulted record; do not infer a precise date",
+      "creator": "Bain News Service, publisher",
+      "rights_basis": "LoC Bain collection: No known restrictions on publication; Commons PD-Bain / PD-US-no-notice, jurisdiction caveat retained",
+      "note": "Portrait is Robert Hart, not Hosea Ballou Morse. Native LoC derivative, no colorization.",
+      "download_url": "https://upload.wikimedia.org/wikipedia/commons/archive/5/5c/20181102133547%21Sir_Robert_Hart%2C_seated_with_book_LCCN2014683527.jpg",
+      "sha256": "ae717222324fe032669accf2f712b14c83822e96532f62a98830bee34cc41aaf",
+      "bytes": 116710,
+      "width": 1024,
+      "height": 750,
+      "status": "local-only-review-not-published"
+    },
+    {
+      "file": "qing-shilu-cover.png",
+      "record": "https://commons.wikimedia.org/wiki/File:MYK-%E5%B0%81%E9%9D%A2.png",
+      "subject": "《清实录》封面",
+      "source_label": "《满洲实录》",
+      "creator": "清代作者（来源页字段）",
+      "date": "未独立核实版本年代，不显示具体年份",
+      "rights_basis": "PD-old-70-expired / Public Domain Mark 1.0 as marked by Commons file page",
+      "width": 693,
+      "height": 1018,
+      "bytes": 908044,
+      "sha256": "3e33b6c211f989eebf8aa9fc943d2902d8bfecad5f344d413606e23cf9ff1a77",
+      "status": "local-only-review-not-published",
+      "note": "专题配图，非平台已接入档案原件；原图未经编辑。"
+    }
+  ]
+}

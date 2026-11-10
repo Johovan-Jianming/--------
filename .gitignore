@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build outputs
+dist/
+frontend/dist/
+
+# Python virtual environments & cache
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Raw archives & backups (processed GeoJSON is kept in frontend/public/geo/)
+*.zip
+chgis_raw/
+清史平台_全站备份_*/
+
+# Logs & OS files
+*.log
+.DS_Store
+Thumbs.db
