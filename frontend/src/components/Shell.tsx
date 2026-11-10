@@ -119,6 +119,12 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
           label: '概念流变与中国立场审定',
           desc: '跨语际术语偏移 · 主体立场纠偏',
         },
+        {
+          to: '/radar?mode=experiment',
+          code: '2.5',
+          label: '解释网络与弱实验台',
+          desc: '多解释版本并置 · 证据条件弱实验',
+        },
       ],
     },
     {
