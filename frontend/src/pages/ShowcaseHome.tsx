@@ -50,27 +50,6 @@ const HERO_SCENES: HeroScene[] = [
   },
 ];
 
-const GIT_COMMIT_LOG = [
-  {
-    hash: 'HEAD · v2.5',
-    date: '2026-11-11 05:50',
-    scope: 'feat(wittfogel & home)',
-    msg: '入库魏特夫 Box 9《清史总纲》与 Box 66《满洲帝国的衰落》真实档案全链路示范；重构书卷风 Bento 专题首页与 PLAN_AND_GOAL',
-  },
-  {
-    hash: 'e55cb0c · v2.4',
-    date: '2026-11-11 05:10',
-    scope: 'feat(radar, wiki, agent)',
-    msg: '拆分阶段贰为 4 个独立工作台；升级 nashsu/llm_wiki 图谱/两步摄取/Lint 巡检；新增 /agent 智能体 Chat & Work 协同与 OpenAlex/CHGIS MCP',
-  },
-  {
-    hash: '1b44bfc · v2.1',
-    date: '2026-11-11 04:40',
-    scope: 'feat(proofread, skills, ci)',
-    msg: '实现 OCR 行句级辅助框双向高亮校勘；创建 .agent/skills 领域技能与 backend/mcp_server.py；配置 GitHub Pages 自动部署',
-  },
-];
-
 export const ShowcaseHome: React.FC = () => {
   const navigate = useNavigate();
   const { loadSampleDossier } = useWorkbench();
@@ -177,12 +156,6 @@ export const ShowcaseHome: React.FC = () => {
 
           {/* 右侧快捷入口 */}
           <div className="flex items-center gap-2">
-            <a
-              href="#git-changelog"
-              className="hidden rounded-full border border-[var(--line)] bg-[#fcfaf5] px-2.5 py-1 font-mono text-[11px] text-[var(--ink-secondary)] hover:border-[var(--ink)] sm:inline-block"
-            >
-              Git v2.5
-            </a>
             <button
               type="button"
               onClick={() => navigate('/workbench')}
@@ -1148,111 +1121,6 @@ export const ShowcaseHome: React.FC = () => {
                         </span>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ═══════════════════════════════════════════════════════════════════
-            第三屏：本地 Git 版本日志与 Plan & Goal 持续推进状态栏
-           ═══════════════════════════════════════════════════════════════════ */}
-        <section id="git-changelog" className="mt-16">
-          <div className="rounded-[16px] border border-[var(--line-strong)] bg-[#fcfaf5] p-6 sm:p-8">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
-              <div>
-                <div className="font-mono text-[10px] tracking-widest text-[#9b2c1f] uppercase">
-                  LOCAL GIT CHANGELOG &amp; CONTINUOUS PLAN
-                </div>
-                <h2 className="mt-1 font-serif text-xl font-semibold text-[var(--ink)]">
-                  本地 Git 演进日志与 Plan &amp; Goal 持续推进路线图
-                </h2>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="rounded-full bg-emerald-50 px-3 py-1 font-mono text-[11px] font-semibold text-emerald-800">
-                  ● branch: main (working tree tracked)
-                </span>
-                <button
-                  type="button"
-                  onClick={() => navigate('/agent')}
-                  className="rounded-full border border-[var(--ink)] bg-[var(--ink)] px-3.5 py-1 text-xs font-medium text-white hover:bg-[#9b2c1f]"
-                >
-                  打开智能体协同台 →
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-12">
-              {/* 左侧：Git 提交记录 */}
-              <div className="space-y-3 lg:col-span-7">
-                <div className="font-mono text-xs font-semibold text-[var(--ink-secondary)]">
-                  最近 Git 提交记录 (CHANGELOG.md 同步记录)
-                </div>
-                {GIT_COMMIT_LOG.map((c) => (
-                  <div
-                    key={c.hash}
-                    className="rounded-[8px] border border-[var(--line)] bg-white p-3.5 shadow-2xs"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="rounded bg-[#1f1b17] px-2 py-0.5 font-mono text-[10px] font-semibold text-white">
-                          {c.hash}
-                        </span>
-                        <span className="font-mono text-[11px] font-semibold text-[#9b2c1f]">
-                          {c.scope}
-                        </span>
-                      </div>
-                      <span className="font-mono text-[10px] text-[var(--ink-muted)]">
-                        {c.date}
-                      </span>
-                    </div>
-                    <p className="mt-1.5 text-xs leading-relaxed text-[var(--ink-secondary)]">
-                      {c.msg}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              {/* 右侧：Plan & Goal 阶段达成面板 */}
-              <div className="rounded-[10px] border border-[var(--line)] bg-[#f4f1e8] p-4 lg:col-span-5">
-                <div className="flex items-center justify-between">
-                  <span className="font-serif text-sm font-semibold text-[var(--ink)]">
-                    📋 Plan &amp; Goal 持续推进矩阵
-                  </span>
-                  <span className="font-mono text-[10px] text-[#9b2c1f]">
-                    PLAN_AND_GOAL.md
-                  </span>
-                </div>
-                <div className="mt-3 space-y-2.5 text-xs">
-                  <div className="rounded bg-white p-2.5">
-                    <div className="flex items-center justify-between font-semibold text-emerald-800">
-                      <span>✓ Phase I：EAD 七级编目与双层手迹辅助校订</span>
-                      <span className="font-mono text-[10px]">DONE</span>
-                    </div>
-                    <p className="mt-0.5 text-[11px] text-[var(--ink-secondary)]">
-                      支持三层分离编目、150字摘记、行句辅助框双向高亮与自动标点。
-                    </p>
-                  </div>
-
-                  <div className="rounded bg-white p-2.5">
-                    <div className="flex items-center justify-between font-semibold text-emerald-800">
-                      <span>✓ Phase II：四子工作台考异与五维史料雷达</span>
-                      <span className="font-mono text-[10px]">DONE</span>
-                    </div>
-                    <p className="mt-0.5 text-[11px] text-[var(--ink-secondary)]">
-                      独立拆分 2.1 价值甄别、2.2 考异长编、2.3 五维雷达、2.4 中国立场审定。
-                    </p>
-                  </div>
-
-                  <div className="rounded bg-white p-2.5">
-                    <div className="flex items-center justify-between font-semibold text-emerald-800">
-                      <span>✓ Phase III：魏特夫 Box 9 &amp; Box 66 全链路实测示范</span>
-                      <span className="font-mono text-[10px]">ACTIVE</span>
-                    </div>
-                    <p className="mt-0.5 text-[11px] text-[var(--ink-secondary)]">
-                      已完成 28 页档案提取、正向校准、8 处核心证据框选、3 篇跨卷考异与 5 篇 Wiki 词条编译。
-                    </p>
                   </div>
                 </div>
               </div>
