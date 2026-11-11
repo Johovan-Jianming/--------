@@ -105,7 +105,7 @@ export const Atlas: React.FC = () => {
   const [eRegion, setERegion] = useState('');
   const [eNote, setENote] = useState('');
 
-  const [panel, setPanel] = useState<'place' | 'event' | 'list'>('place');
+  const [panel, setPanel] = useState<'place' | 'event' | 'list'>('list');
 
   const placeById = useMemo(() => {
     const m = new Map<string, MapPlace>();
@@ -267,16 +267,40 @@ export const Atlas: React.FC = () => {
     if (!map || !group) return;
     group.clearLayers();
 
-    const markerFor = (p: MapPlace) => {
+    const markerFor = (p: MapPlace, idx = 0) => {
       const m = L.circleMarker([p.lat, p.lng], {
-        radius: p.kind === 'repository' ? 8 : 6,
+        radius: p.kind === 'repository' ? 8 : 6.5,
         color: '#fffefb',
-        weight: 1.5,
+        weight: 2,
         fillColor: CONF_COLOR[p.confidence],
         fillOpacity: 0.95,
       });
       m.bindPopup(() => popupFor(p));
-      m.bindTooltip(p.name);
+      const shortSummary = (p.note || p.basis || '')
+        .replace(/^魏特夫\s*/, '')
+        .slice(0, 26);
+      const dir =
+        p.id === 'PLC-KAW-02'
+          ? 'left'
+          : p.id === 'PLC-KAW-04'
+          ? 'bottom'
+          : idx % 2 === 0
+          ? 'right'
+          : 'top';
+      m.bindTooltip(
+        `<div style="font-family:'Noto Serif SC',serif;line-height:1.3;padding:1px 2px;">
+          <div style="font-weight:700;font-size:11.5px;color:#1f1b17;">${p.name.split('（')[0]}${
+          p.year ? ` <span style="color:#9b2c1f;font-family:monospace;font-size:10px;">[${p.year}]</span>` : ''
+        }</div>
+          <div style="font-size:10px;color:#4a433a;max-width:190px;white-space:normal;">${shortSummary}…</div>
+        </div>`,
+        {
+          permanent: true,
+          direction: dir,
+          offset: dir === 'left' ? [-8, 0] : dir === 'right' ? [8, 0] : [0, -6],
+          opacity: 0.96,
+        }
+      );
       return m;
     };
 
@@ -284,9 +308,7 @@ export const Atlas: React.FC = () => {
       const list = visiblePlaces.filter((p) =>
         view === 'repo' ? p.kind === 'repository' : true
       );
-      const cluster = L.markerClusterGroup({ showCoverageOnHover: false });
-      list.forEach((p) => cluster.addLayer(markerFor(p)));
-      group.addLayer(cluster);
+      list.forEach((p, idx) => group.addLayer(markerFor(p, idx)));
     }
 
     if (view === 'heat') {
@@ -306,7 +328,7 @@ export const Atlas: React.FC = () => {
           ).heatLayer(pts, { radius: 32, blur: 24, maxZoom: 8 })
         );
       }
-      visiblePlaces.forEach((p) => group.addLayer(markerFor(p)));
+      visiblePlaces.forEach((p, idx) => group.addLayer(markerFor(p, idx)));
     }
 
     if (view === 'route') {
@@ -325,9 +347,12 @@ export const Atlas: React.FC = () => {
             [a.lat, a.lng],
             [lat, lng],
           ],
-          { color: '#9b2c1f', weight: 2.5, opacity: 0.85, dashArray: frac < 1 ? '6 6' : undefined }
+          { color: '#9b2c1f', weight: 3, opacity: 0.9, dashArray: frac < 1 ? '6 6' : undefined }
         );
-        line.bindTooltip(`${e.type} ${e.yearStart}–${e.yearEnd}：${a.name} → ${b.name}`);
+        line.bindTooltip(
+          `<div style="font-size:11px;font-weight:600;color:#9b2c1f;">📜 ${e.yearStart}–${e.yearEnd} ${e.type}：${(e.note || '').slice(0, 22)}…</div>`,
+          { permanent: true, direction: 'center' }
+        );
         line.on('click', () => {
           if (e.regionId) openEvidence(e.regionId);
         });
@@ -335,9 +360,9 @@ export const Atlas: React.FC = () => {
         used.add(a.id);
         if (frac >= 1) used.add(b.id);
       });
-      used.forEach((id) => {
+      Array.from(used).forEach((id, idx) => {
         const p = placeById.get(id);
-        if (p) group.addLayer(markerFor(p));
+        if (p) group.addLayer(markerFor(p, idx));
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -778,59 +803,142 @@ export const Atlas: React.FC = () => {
           )}
 
           {panel === 'list' && (
-            <div className="max-h-[560px] overflow-y-auto p-4">
-              <div className="kh-eyebrow">地名 ({mapPlaces.length})</div>
-              {mapPlaces.length === 0 ? (
-                <p className="py-4 text-xs text-[var(--ink-muted)]">暂无。</p>
-              ) : (
-                <ul className="mt-2 divide-y divide-[var(--line)]">
-                  {mapPlaces.map((p) => (
-                    <li key={p.id} className="flex items-center justify-between py-2 text-xs">
-                      <button
-                        type="button"
-                        className="text-left"
-                        onClick={() => mapRef.current?.setView([p.lat, p.lng], 7)}
-                      >
-                        <span style={{ color: CONF_COLOR[p.confidence] }}>● </span>
-                        <span className="font-medium">{p.name}</span>
-                        <span className="ml-1.5 font-mono text-[10px] text-[var(--ink-muted)]">
-                          {p.lat}, {p.lng}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => deleteMapPlace(p.id)}
-                        className="text-[var(--ink-muted)] hover:text-[var(--seal)]"
-                      >
-                        删除
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="kh-eyebrow mt-5">事件 ({mapEvents.length})</div>
-              {mapEvents.length === 0 ? (
-                <p className="py-4 text-xs text-[var(--ink-muted)]">暂无。</p>
-              ) : (
-                <ul className="mt-2 divide-y divide-[var(--line)]">
-                  {mapEvents.map((ev) => (
-                    <li key={ev.id} className="flex items-center justify-between py-2 text-xs">
-                      <span>
-                        <b>{ev.type}</b> {ev.yearStart}
-                        {ev.yearEnd !== ev.yearStart ? `–${ev.yearEnd}` : ''}：
-                        {placeById.get(ev.fromPlaceId)?.name} → {placeById.get(ev.toPlaceId)?.name}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => deleteMapEvent(ev.id)}
-                        className="text-[var(--ink-muted)] hover:text-[var(--seal)]"
-                      >
-                        删除
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+            <div className="max-h-[620px] space-y-4 overflow-y-auto p-4">
+              <div>
+                <div className="kh-eyebrow">
+                  已锚定史料空间节点 ({mapPlaces.length})
+                </div>
+                {mapPlaces.length === 0 ? (
+                  <p className="py-4 text-xs text-[var(--ink-muted)]">暂无。</p>
+                ) : (
+                  <ul className="mt-2.5 space-y-2.5">
+                    {mapPlaces.map((p) => {
+                      const reg = imageRegions.find((r) => r.id === p.regionId);
+                      return (
+                        <li
+                          key={p.id}
+                          className="rounded-[3px] border border-[var(--line)] bg-[#fcfaf5] p-3 text-xs transition hover:border-[var(--ink)]"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <button
+                              type="button"
+                              className="text-left"
+                              onClick={() =>
+                                mapRef.current?.setView([p.lat, p.lng], 6)
+                              }
+                            >
+                              <span
+                                style={{ color: CONF_COLOR[p.confidence] }}
+                              >
+                                ●{' '}
+                              </span>
+                              <span className="font-serif font-semibold text-[var(--ink)]">
+                                {p.name}
+                              </span>
+                              {p.year && (
+                                <span className="ml-1.5 rounded bg-[#eeeae1] px-1.5 py-0.2 font-mono text-[10px] font-semibold text-[var(--seal)]">
+                                  {p.year}年
+                                </span>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteMapPlace(p.id)}
+                              className="shrink-0 text-[10px] text-[var(--ink-muted)] hover:text-[var(--seal)]"
+                            >
+                              删除
+                            </button>
+                          </div>
+
+                          <div className="mt-1 font-mono text-[10.5px] text-[var(--ink-muted)]">
+                            {p.admin || '清代政区'} · ({p.lat.toFixed(2)},{' '}
+                            {p.lng.toFixed(2)})
+                          </div>
+
+                          {(p.note || p.basis) && (
+                            <p className="mt-1.5 text-[11.5px] leading-relaxed text-[var(--ink-secondary)]">
+                              {p.note || p.basis}
+                            </p>
+                          )}
+
+                          <div className="mt-2 flex items-center justify-between border-t border-[#ece6da] pt-1.5 text-[10.5px]">
+                            <span className="truncate text-[var(--ink-muted)]">
+                              依据：{p.basis.slice(0, 24)}
+                            </span>
+                            {reg && (
+                              <button
+                                type="button"
+                                onClick={() => openEvidence(reg.id)}
+                                className="shrink-0 font-semibold text-[var(--seal)] hover:underline"
+                              >
+                                📄 打开原件图像 →
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+
+              <div className="border-t border-[var(--line)] pt-4">
+                <div className="kh-eyebrow">
+                  时空流转与历史事件轨迹 ({mapEvents.length})
+                </div>
+                {mapEvents.length === 0 ? (
+                  <p className="py-4 text-xs text-[var(--ink-muted)]">暂无。</p>
+                ) : (
+                  <ul className="mt-2.5 space-y-2.5">
+                    {mapEvents.map((ev) => {
+                      const reg = imageRegions.find(
+                        (r) => r.id === ev.regionId
+                      );
+                      return (
+                        <li
+                          key={ev.id}
+                          className="rounded-[3px] border border-[var(--line)] bg-white p-3 text-xs"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="font-semibold text-[var(--ink)]">
+                              <span className="mr-1.5 rounded bg-[var(--seal)] px-1.5 py-0.5 font-mono text-[10px] text-white">
+                                {ev.yearStart}
+                                {ev.yearEnd !== ev.yearStart
+                                  ? `–${ev.yearEnd}`
+                                  : ''}
+                              </span>
+                              {placeById.get(ev.fromPlaceId)?.name.split('（')[0]}{' '}
+                              →{' '}
+                              {placeById.get(ev.toPlaceId)?.name.split('（')[0]}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => deleteMapEvent(ev.id)}
+                              className="shrink-0 text-[10px] text-[var(--ink-muted)] hover:text-[var(--seal)]"
+                            >
+                              删除
+                            </button>
+                          </div>
+                          {ev.note && (
+                            <p className="mt-1.5 text-[11.5px] leading-relaxed text-[var(--ink-secondary)]">
+                              {ev.note}
+                            </p>
+                          )}
+                          {reg && (
+                            <button
+                              type="button"
+                              onClick={() => openEvidence(reg.id)}
+                              className="mt-1.5 inline-block text-[10.5px] font-semibold text-[var(--seal)] hover:underline"
+                            >
+                              📄 调阅轨迹关联原图：{reg.label.split('·')[0].trim()} →
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
             </div>
           )}
         </div>

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { MapLibreOverlay } from '@deck.gl/maplibre';
-import { ArcLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers';
+import { ArcLayer, ScatterplotLayer } from '@deck.gl/layers';
 import { HeatmapLayer } from '@deck.gl/aggregation-layers';
 import { MapPlace, MapEvent, ImageEvidenceRegion } from '../store';
 
@@ -34,6 +34,7 @@ export const MapLibreDeckAtlas: React.FC<MapLibreDeckAtlasProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const overlayRef = useRef<MapLibreOverlay | null>(null);
+  const markersRef = useRef<maplibregl.Marker[]>([]);
 
   const [tooltipInfo, setTooltipInfo] = useState<{
     x: number;
@@ -42,10 +43,13 @@ export const MapLibreDeckAtlas: React.FC<MapLibreDeckAtlasProps> = ({
     subtitle?: string;
     confidence?: string;
     basis?: string;
+    note?: string;
     regionId?: string;
   } | null>(null);
 
-  const [pitch, setPitch] = useState<number>(45);
+  const [pitch, setPitch] = useState<number>(42);
+  const [labelMode, setLabelMode] = useState<'rich' | 'compact' | 'hidden'>('rich');
+  const [activePlaceId, setActivePlaceId] = useState<string>(places[0]?.id || '');
 
   // Initialize MapLibre
   useEffect(() => {
@@ -96,10 +100,10 @@ export const MapLibreDeckAtlas: React.FC<MapLibreDeckAtlasProps> = ({
           },
         ],
       },
-      center: [105.0, 36.5],
-      zoom: 3.8,
-      pitch: 45,
-      bearing: -5,
+      center: [115.5, 36.2],
+      zoom: 4.3,
+      pitch: 42,
+      bearing: -4,
     });
 
     map.addControl(
@@ -151,6 +155,8 @@ export const MapLibreDeckAtlas: React.FC<MapLibreDeckAtlasProps> = ({
     overlayRef.current = overlay;
 
     return () => {
+      markersRef.current.forEach((m) => m.remove());
+      markersRef.current = [];
       map.remove();
       mapRef.current = null;
       overlayRef.current = null;
@@ -177,7 +183,7 @@ export const MapLibreDeckAtlas: React.FC<MapLibreDeckAtlasProps> = ({
     }
   }, [showChgis]);
 
-  // Update Deck.gl Layers
+  // Update Deck.gl Layers (Heatmap, 3D Arcs, Scatterplot Dots)
   useEffect(() => {
     const overlay = overlayRef.current;
     if (!overlay) return;
@@ -198,14 +204,14 @@ export const MapLibreDeckAtlas: React.FC<MapLibreDeckAtlasProps> = ({
             const count = imageRegions.filter((r) => r.id === d.regionId).length;
             return 1 + count * 2;
           },
-          radiusPixels: 45,
-          intensity: 1.2,
+          radiusPixels: 48,
+          intensity: 1.25,
           threshold: 0.05,
         })
       );
     }
 
-    // 2. 3D Arc Flow Layer (when in 'route' or default mode with active events)
+    // 2. 3D Arc Flow Layer (when in 'route' or 'space' mode)
     if (viewMode === 'route' || viewMode === 'space') {
       const activeEvents = events.filter((e) => e.yearStart <= currentYear);
       layers.push(
@@ -220,10 +226,10 @@ export const MapLibreDeckAtlas: React.FC<MapLibreDeckAtlasProps> = ({
             const p = placeMap.get(e.toPlaceId);
             return p ? [p.lng, p.lat, 0] : [0, 0, 0];
           },
-          getSourceColor: [155, 44, 31, 230], // Seal red
-          getTargetColor: [176, 141, 87, 230], // Gold/ochre
+          getSourceColor: [155, 44, 31, 235], // Seal red
+          getTargetColor: [176, 141, 87, 235], // Gold/ochre
           getWidth: 3.5,
-          getHeight: 0.35, // 3D Parabolic curve height
+          getHeight: 0.32,
           pickable: true,
           onHover: (info) => {
             if (info.object) {
@@ -236,7 +242,8 @@ export const MapLibreDeckAtlas: React.FC<MapLibreDeckAtlasProps> = ({
                 title: `${ev.type}：${f} → ${t}`,
                 subtitle: `年代：${ev.yearStart}${
                   ev.yearEnd !== ev.yearStart ? '–' + ev.yearEnd : ''
-                } 年 · ${ev.note || ''}`,
+                } 年`,
+                note: ev.note,
                 regionId: ev.regionId,
               });
             } else {
@@ -263,11 +270,13 @@ export const MapLibreDeckAtlas: React.FC<MapLibreDeckAtlasProps> = ({
         id: 'deck-scatter-layer',
         data: filteredPlaces,
         getPosition: (d: MapPlace) => [d.lng, d.lat, 0],
-        getRadius: (d: MapPlace) => (d.kind === 'repository' ? 32000 : 20000),
+        getRadius: (d: MapPlace) => (d.kind === 'repository' ? 28000 : 18000),
+        radiusMinPixels: 6,
+        radiusMaxPixels: 14,
         getFillColor: (d: MapPlace) => {
-          if (d.confidence === 'explicit') return [31, 27, 23, 240];
-          if (d.confidence === 'verified') return [155, 44, 31, 240];
-          return [176, 141, 87, 240];
+          if (d.confidence === 'explicit') return [155, 44, 31, 245];
+          if (d.confidence === 'verified') return [31, 27, 23, 245];
+          return [176, 141, 87, 245];
         },
         getLineColor: [255, 254, 251, 255],
         lineWidthMinPixels: 2,
@@ -287,6 +296,7 @@ export const MapLibreDeckAtlas: React.FC<MapLibreDeckAtlasProps> = ({
                   ? '学者核定'
                   : '智能体推测待核',
               basis: p.basis,
+              note: p.note,
               regionId: p.regionId,
             });
           } else {
@@ -295,91 +305,363 @@ export const MapLibreDeckAtlas: React.FC<MapLibreDeckAtlasProps> = ({
         },
         onClick: (info) => {
           if (info.object) {
-            onSelectPlace?.(info.object as MapPlace);
+            const p = info.object as MapPlace;
+            setActivePlaceId(p.id);
+            onSelectPlace?.(p);
           }
         },
-      })
-    );
-
-    // 4. Text Label Layer (characterSet: 'auto' enables full CJK / Unicode glyph rendering in WebGL)
-    layers.push(
-      new TextLayer({
-        id: 'deck-text-layer',
-        data: filteredPlaces,
-        characterSet: 'auto',
-        getPosition: (d: MapPlace) => [d.lng, d.lat, 0],
-        getText: (d: MapPlace) =>
-          d.alias ? `${d.name} (${d.alias.split('/')[0].trim()})` : d.name,
-        getSize: 13,
-        getColor: [31, 27, 23, 255],
-        getTextAnchor: 'start',
-        getAlignmentBaseline: 'center',
-        getPixelOffset: [12, 0],
-        background: true,
-        getBackgroundColor: [255, 254, 251, 238],
-        getBorderColor: [216, 208, 194, 255],
-        getBorderWidth: 1,
-        backgroundPadding: [6, 3],
-        fontFamily:
-          '"Noto Serif SC", "Source Han Serif SC", "Songti SC", "Microsoft YaHei", serif',
-        fontWeight: 600,
       })
     );
 
     overlay.setProps({ layers });
   }, [places, events, imageRegions, currentYear, viewMode]);
 
+  // 4. Native HTML DOM Markers for Crisp CJK Typography & Rich Archival Content
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    // Clear previous DOM markers
+    markersRef.current.forEach((m) => m.remove());
+    markersRef.current = [];
+
+    if (labelMode === 'hidden') return;
+
+    const filteredPlaces =
+      viewMode === 'repo'
+        ? places.filter((p) => p.kind === 'repository')
+        : places;
+
+    // Smart pixel-offset dispersion for nearby Jiangnan nodes (Qingjiangpu, Yangzhou/Nanking, Shanghai)
+    const getOffsetForPlace = (p: MapPlace, idx: number): [number, number] => {
+      if (p.id === 'PLC-KAW-02') return [14, -22]; // 清江浦：左上偏
+      if (p.id === 'PLC-KAW-03') return [14, 4];   // 扬州与江宁：正右偏
+      if (p.id === 'PLC-KAW-04') return [14, 26];  // 上海：右下偏
+      if (p.id === 'PLC-DEMO-01') return [14, -14]; // 多伦诺尔：右上偏
+      return [14, (idx % 2 === 0 ? -6 : 8)];
+    };
+
+    filteredPlaces.forEach((p, idx) => {
+      const reg = imageRegions.find((r) => r.id === p.regionId);
+      const isSelected = p.id === activePlaceId;
+      const el = document.createElement('div');
+      el.className = 'pointer-events-auto cursor-pointer select-none transition-transform hover:z-40';
+
+      const dotColor =
+        p.confidence === 'explicit'
+          ? '#9b2c1f'
+          : p.confidence === 'verified'
+          ? '#1f1b17'
+          : '#b08d57';
+
+      if (labelMode === 'compact') {
+        el.innerHTML = `
+          <div style="
+            display:inline-flex;align-items:center;gap:5px;
+            background:${isSelected ? '#1f1b17' : 'rgba(252,250,245,0.95)'};
+            color:${isSelected ? '#ffffff' : '#1f1b17'};
+            border:1.5px solid ${isSelected ? '#9b2c1f' : '#c8bfb0'};
+            border-radius:3px;padding:3px 7px;
+            font-family:'Noto Serif SC','Songti SC',serif;
+            font-size:11.5px;font-weight:600;
+            box-shadow:0 2px 6px rgba(31,27,23,0.16);
+            white-space:nowrap;
+          ">
+            <span style="width:7px;height:7px;border-radius:999px;background:${dotColor};display:inline-block"></span>
+            <span>${p.name.split('（')[0]}</span>
+            ${p.year ? `<span style="font-family:monospace;font-size:10px;opacity:0.8">${p.year}</span>` : ''}
+          </div>
+        `;
+      } else {
+        // Rich mode: Shows Place Name + Year + Historical/Archival Content Snippet + Direct Evidence Link
+        const shortNote = (p.note || p.basis || '')
+          .replace(/^魏特夫\s*/, '')
+          .slice(0, 34);
+        el.innerHTML = `
+          <div style="
+            max-width:235px;
+            background:${isSelected ? '#fffdf8' : 'rgba(252,250,245,0.96)'};
+            color:#1f1b17;
+            border:${isSelected ? '2px solid #9b2c1f' : '1px solid #b8ae9e'};
+            border-left:3.5px solid ${dotColor};
+            border-radius:3px;
+            padding:5px 8px;
+            box-shadow:0 3px 10px rgba(31,27,23,0.18);
+            backdrop-filter:blur(4px);
+          ">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+              <span style="font-family:'Noto Serif SC','Songti SC',serif;font-size:12px;font-weight:700;color:#1f1b17;line-height:1.25;">
+                ${p.name}
+              </span>
+              ${
+                p.year
+                  ? `<span style="font-family:monospace;font-size:10px;background:#eeeae1;color:#9b2c1f;padding:1px 4px;border-radius:2px;font-weight:600;flex-shrink:0;">${p.year}年</span>`
+                  : ''
+              }
+            </div>
+            <div style="font-size:10.5px;color:#4a433a;margin-top:3px;line-height:1.35;">
+              ${shortNote ? `${shortNote}…` : p.admin || '清代历史地理节点'}
+            </div>
+            ${
+              reg
+                ? `<div data-action="open-evidence" style="margin-top:4px;display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;color:#9b2c1f;background:rgba(155,44,31,0.08);padding:1px 5px;border-radius:2px;">
+                     <span>📄 ${reg.label.split('·')[0].trim()} 原图证据 →</span>
+                   </div>`
+                : ''
+            }
+          </div>
+        `;
+      }
+
+      el.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const target = ev.target as HTMLElement;
+        if (target.closest('[data-action="open-evidence"]') && p.regionId) {
+          onOpenEvidence?.(p.regionId);
+          return;
+        }
+        setActivePlaceId(p.id);
+        onSelectPlace?.(p);
+      });
+
+      const marker = new maplibregl.Marker({
+        element: el,
+        anchor: 'left',
+        offset: getOffsetForPlace(p, idx),
+      })
+        .setLngLat([p.lng, p.lat])
+        .addTo(map);
+
+      markersRef.current.push(marker);
+    });
+
+    // In 'route' mode, also place midpoint event narrative badges along active routes
+    if (viewMode === 'route') {
+      const placeMap = new Map<string, MapPlace>();
+      places.forEach((p) => placeMap.set(p.id, p));
+
+      events
+        .filter((e) => e.yearStart <= currentYear)
+        .forEach((ev) => {
+          const fromP = placeMap.get(ev.fromPlaceId);
+          const toP = placeMap.get(ev.toPlaceId);
+          if (!fromP || !toP) return;
+
+          // Midpoint coordinate (skip trans-Pacific midpoint if zoomed on China, or place near coast)
+          const midLng =
+            Math.abs(fromP.lng - toP.lng) > 90
+              ? fromP.lng + 12
+              : (fromP.lng + toP.lng) / 2;
+          const midLat =
+            Math.abs(fromP.lng - toP.lng) > 90
+              ? fromP.lat + 2
+              : (fromP.lat + toP.lat) / 2;
+
+          const badge = document.createElement('div');
+          badge.className = 'pointer-events-auto cursor-pointer select-none';
+          badge.innerHTML = `
+            <div style="
+              background:#9b2c1f;color:#ffffff;
+              border:1px solid #fffefb;border-radius:999px;
+              padding:2px 8px;font-size:10px;font-weight:600;
+              box-shadow:0 2px 6px rgba(0,0,0,0.22);
+              white-space:nowrap;
+            ">
+              📜 ${ev.yearStart}–${ev.yearEnd} ${ev.type}：${(ev.note || '').slice(0, 18)}…
+            </div>
+          `;
+          badge.onclick = (e) => {
+            e.stopPropagation();
+            if (ev.regionId) onOpenEvidence?.(ev.regionId);
+          };
+
+          const routeMarker = new maplibregl.Marker({
+            element: badge,
+            anchor: 'center',
+          })
+            .setLngLat([midLng, midLat])
+            .addTo(map);
+
+          markersRef.current.push(routeMarker);
+        });
+    }
+  }, [places, events, imageRegions, currentYear, viewMode, labelMode, activePlaceId]);
+
   const togglePitch = () => {
     const map = mapRef.current;
     if (!map) return;
-    const nextPitch = pitch === 0 ? 55 : pitch === 55 ? 30 : 0;
-    map.easeTo({ pitch: nextPitch, duration: 800 });
+    const nextPitch = pitch === 0 ? 52 : pitch === 52 ? 30 : 0;
+    map.easeTo({ pitch: nextPitch, duration: 700 });
     setPitch(nextPitch);
   };
 
-  const resetView = () => {
+  const flyToPlace = (p: MapPlace) => {
     const map = mapRef.current;
+    setActivePlaceId(p.id);
+    onSelectPlace?.(p);
     if (!map) return;
-    map.easeTo({ center: [105.0, 36.5], zoom: 3.8, pitch: 45, bearing: -5, duration: 1000 });
-    setPitch(45);
+    map.flyTo({
+      center: [p.lng, p.lat],
+      zoom: p.kind === 'repository' ? 5.2 : 5.8,
+      pitch: 45,
+      duration: 1100,
+    });
   };
 
+  const resetChinaView = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.flyTo({
+      center: [115.5, 36.2],
+      zoom: 4.3,
+      pitch: 42,
+      bearing: -4,
+      duration: 900,
+    });
+    setPitch(42);
+  };
+
+  const resetGlobalView = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.flyTo({
+      center: [165.0, 34.0],
+      zoom: 1.8,
+      pitch: 25,
+      bearing: 0,
+      duration: 1000,
+    });
+    setPitch(25);
+  };
+
+  const activePlace =
+    places.find((p) => p.id === activePlaceId) || places[0] || null;
+  const activeRegion = activePlace
+    ? imageRegions.find((r) => r.id === activePlace.regionId) || null
+    : null;
+
   return (
-    <div className="relative h-[560px] w-full select-none overflow-hidden rounded-[4px] border border-[var(--line)] bg-[#eeeae1]">
+    <div className="relative h-[620px] w-full select-none overflow-hidden rounded-[4px] border border-[var(--line)] bg-[#eeeae1]">
       <div ref={containerRef} className="h-full w-full" />
 
-      {/* 3D Viewport Controls */}
-      <div className="absolute top-3 left-3 z-10 flex items-center gap-2 rounded-[3px] border border-[var(--line)] bg-[var(--sheet)]/90 px-3 py-1.5 backdrop-blur-xs">
-        <span className="font-mono text-[11px] font-semibold text-[var(--seal)]">
-          3D WEBGL ENGINE
+      {/* Top-Left 3D Viewport & Content Label Mode Controls */}
+      <div className="absolute top-3 left-3 z-20 flex flex-wrap items-center gap-1.5 rounded-[3px] border border-[var(--line)] bg-[var(--sheet)]/95 px-2.5 py-1.5 shadow-sm backdrop-blur-xs">
+        <span className="font-mono text-[10.5px] font-semibold text-[var(--seal)]">
+          3D 时空史料图层
         </span>
         <span className="text-[var(--line)]">|</span>
         <button
           type="button"
+          onClick={() =>
+            setLabelMode((m) =>
+              m === 'rich' ? 'compact' : m === 'compact' ? 'hidden' : 'rich'
+            )
+          }
+          className="rounded bg-[#1f1b17] px-2 py-0.5 text-[11px] font-medium text-white hover:bg-[#36302a]"
+          title="切换地图上的史料内容卡片显示密度"
+        >
+          {labelMode === 'rich'
+            ? '📇 史实详情卡 (显示文献内容)'
+            : labelMode === 'compact'
+            ? '🏷️ 精简地名签'
+            : '👁️ 隐藏标签'}
+        </button>
+        <button
+          type="button"
           onClick={togglePitch}
-          className="text-xs text-[var(--ink-secondary)] hover:text-[var(--ink)]"
-          title="切换倾角 (0° 平视 / 30° / 55° 3D透视)"
+          className="rounded border border-[var(--line)] bg-white px-2 py-0.5 text-[11px] text-[var(--ink-secondary)] hover:text-[var(--ink)]"
         >
           倾角: <span className="font-mono">{pitch}°</span>
         </button>
-        <span className="text-[var(--line)]">|</span>
         <button
           type="button"
-          onClick={resetView}
-          className="text-xs text-[var(--ink-secondary)] hover:text-[var(--ink)]"
+          onClick={resetChinaView}
+          className="rounded border border-[var(--line)] bg-white px-2 py-0.5 text-[11px] text-[var(--ink-secondary)] hover:text-[var(--ink)]"
         >
-          复位视角
+          🇨🇳 聚焦清代疆域
+        </button>
+        <button
+          type="button"
+          onClick={resetGlobalView}
+          className="rounded border border-[var(--line)] bg-white px-2 py-0.5 text-[11px] text-[var(--ink-secondary)] hover:text-[var(--ink)]"
+        >
+          🌐 跨洋馆藏全图
         </button>
       </div>
 
-      {/* Interactive Tooltip Card */}
+      {/* Quick Place Navigation Pills Bar */}
+      <div className="absolute top-13 left-3 z-20 flex max-w-[88%] flex-wrap items-center gap-1.5">
+        {places.map((p) => {
+          const isCurr = p.id === activePlace?.id;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => flyToPlace(p)}
+              className={`rounded-[3px] border px-2 py-1 text-[11px] font-medium shadow-xs transition ${
+                isCurr
+                  ? 'border-[#9b2c1f] bg-[#9b2c1f] text-white'
+                  : 'border-[#dcd5c9] bg-[#fcfaf5]/95 text-[#1f1b17] hover:border-[#1f1b17]'
+              }`}
+            >
+              📍 {p.name.split('（')[0]}
+              {p.year ? ` (${p.year})` : ''}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Bottom-Left Active Place Historical & Archival Evidence Card */}
+      {activePlace && (
+        <div className="pointer-events-auto absolute bottom-3 left-3 z-20 max-w-md rounded-[4px] border border-[#1f1b17] bg-[#fcfaf5]/96 p-3.5 shadow-lg backdrop-blur-xs">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-[#9b2c1f] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-white">
+                  {activePlace.year ? `${activePlace.year}年` : '清代节点'}
+                </span>
+                <h4 className="font-serif text-sm font-bold text-[#1f1b17]">
+                  {activePlace.name}
+                </h4>
+              </div>
+              {activePlace.alias && (
+                <div className="mt-0.5 font-mono text-[10.5px] text-[#7a7166]">
+                  西文/古称对照：{activePlace.alias} · {activePlace.admin}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <p className="mt-2 text-xs leading-relaxed text-[#2c2620]">
+            <strong>文献记载与史实内容：</strong>
+            {activePlace.note || activePlace.basis}
+          </p>
+
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[#e5dfd3] pt-2 text-[11px]">
+            <span className="text-[#7a7166]">
+              比定依据：{activePlace.basis.slice(0, 32)}
+            </span>
+            {activeRegion && (
+              <button
+                type="button"
+                onClick={() => onOpenEvidence?.(activeRegion.id)}
+                className="rounded-[2px] bg-[#1f1b17] px-2.5 py-1 text-[11px] font-medium text-white hover:bg-[#9b2c1f]"
+              >
+                打开原件证据：{activeRegion.label.split('·')[0].trim()} →
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Hover Tooltip Card */}
       {tooltipInfo && (
         <div
           style={{
-            left: `${tooltipInfo.x + 12}px`,
-            top: `${tooltipInfo.y + 12}px`,
+            left: `${Math.min(tooltipInfo.x + 14, 520)}px`,
+            top: `${Math.max(tooltipInfo.y - 10, 60)}px`,
           }}
-          className="pointer-events-auto absolute z-20 max-w-xs rounded-[3px] border border-[var(--ink)] bg-[var(--sheet)] p-3 text-xs shadow-lg transition-transform duration-75"
+          className="pointer-events-auto absolute z-30 max-w-xs rounded-[3px] border border-[var(--ink)] bg-[var(--sheet)] p-3 text-xs shadow-lg"
         >
           <div className="font-serif font-semibold text-[var(--ink)]">
             {tooltipInfo.title}
@@ -389,11 +671,9 @@ export const MapLibreDeckAtlas: React.FC<MapLibreDeckAtlasProps> = ({
               {tooltipInfo.subtitle}
             </div>
           )}
-          {tooltipInfo.confidence && (
-            <div className="mt-1 text-[11px]">
-              <span className="text-[var(--seal)] font-medium">
-                ● {tooltipInfo.confidence}
-              </span>
+          {tooltipInfo.note && (
+            <div className="mt-1.5 rounded bg-[#f6f4ef] p-1.5 text-[11px] leading-relaxed text-[#1f1b17]">
+              {tooltipInfo.note}
             </div>
           )}
           {tooltipInfo.basis && (
@@ -405,7 +685,7 @@ export const MapLibreDeckAtlas: React.FC<MapLibreDeckAtlasProps> = ({
             <button
               type="button"
               onClick={() => onOpenEvidence?.(tooltipInfo.regionId!)}
-              className="mt-2 block rounded-[2px] bg-[var(--ink)] px-2 py-0.5 text-[10px] text-white hover:bg-zinc-800"
+              className="mt-2 block rounded-[2px] bg-[var(--ink)] px-2 py-1 text-[10px] text-white hover:bg-zinc-800"
             >
               在阅读台打开对应原图 →
             </button>
@@ -413,9 +693,9 @@ export const MapLibreDeckAtlas: React.FC<MapLibreDeckAtlasProps> = ({
         </div>
       )}
 
-      {/* Bottom Hint */}
-      <div className="pointer-events-none absolute right-3 bottom-3 z-10 rounded-[2px] bg-[var(--ink)]/80 px-2 py-0.5 font-mono text-[10px] text-white backdrop-blur-xs">
-        按住右键或 Ctrl 拖动可自由旋转与倾斜三维视角
+      {/* Bottom-Right Hint */}
+      <div className="pointer-events-none absolute right-3 bottom-3 z-10 rounded-[2px] bg-[var(--ink)]/85 px-2.5 py-1 font-mono text-[10px] text-white backdrop-blur-xs">
+        点击上方地名胶囊可一键三维巡航 · 点击卡片直接调阅手稿原件
       </div>
     </div>
   );
