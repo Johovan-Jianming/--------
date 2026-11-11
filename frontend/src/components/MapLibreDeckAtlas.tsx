@@ -301,22 +301,28 @@ export const MapLibreDeckAtlas: React.FC<MapLibreDeckAtlasProps> = ({
       })
     );
 
-    // 4. Text Label Layer
+    // 4. Text Label Layer (characterSet: 'auto' enables full CJK / Unicode glyph rendering in WebGL)
     layers.push(
       new TextLayer({
         id: 'deck-text-layer',
         data: filteredPlaces,
+        characterSet: 'auto',
         getPosition: (d: MapPlace) => [d.lng, d.lat, 0],
-        getText: (d: MapPlace) => d.name,
-        getSize: 12,
-        getColor: [31, 27, 23, 240],
+        getText: (d: MapPlace) =>
+          d.alias ? `${d.name} (${d.alias.split('/')[0].trim()})` : d.name,
+        getSize: 13,
+        getColor: [31, 27, 23, 255],
         getTextAnchor: 'start',
         getAlignmentBaseline: 'center',
         getPixelOffset: [12, 0],
         background: true,
-        getBackgroundColor: [255, 254, 251, 220],
-        backgroundPadding: [4, 2],
-        fontFamily: 'Noto Serif SC, Songti SC, serif',
+        getBackgroundColor: [255, 254, 251, 238],
+        getBorderColor: [216, 208, 194, 255],
+        getBorderWidth: 1,
+        backgroundPadding: [6, 3],
+        fontFamily:
+          '"Noto Serif SC", "Source Han Serif SC", "Songti SC", "Microsoft YaHei", serif',
+        fontWeight: 600,
       })
     );
 

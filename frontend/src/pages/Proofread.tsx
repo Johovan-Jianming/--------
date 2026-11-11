@@ -42,6 +42,11 @@ export const Proofread: React.FC = () => {
   const [rightViewMode, setRightViewMode] = useState<'linebyline' | 'text'>(
     'linebyline'
   );
+  // 视图比例与版芯聚焦放大控制
+  const [layoutRatio, setLayoutRatio] = useState<'7:5' | '6:6' | '12:12'>('7:5');
+  const [focusRoiMode, setFocusRoiMode] = useState<boolean>(true);
+  const [imageZoom, setImageZoom] = useState<number>(100);
+  const [showBoxCalibrator, setShowBoxCalibrator] = useState<boolean>(false);
 
   const activeFile =
     uploadedFiles.find((f) => f.id === activeFileId) || null;
@@ -487,6 +492,77 @@ export const Proofread: React.FC = () => {
     }
   };
 
+  // 按打字机/手稿物理行宽自动拆行（解决单段长文本只有1个#01框的问题）
+  const handleAutoSplitPhysicalLines = (maxCharsPerLine = 62) => {
+    const source = (correctedText || ocrOutput).trim();
+    if (!source) {
+      toast.error('当前无文本可拆行');
+      return;
+    }
+    const paragraphs = source.split(/\r?\n/).filter((p) => p.trim());
+    const resultLines: string[] = [];
+    for (const para of paragraphs) {
+      if (para.length <= maxCharsPerLine + 10) {
+        resultLines.push(para.trim());
+        continue;
+      }
+      // 西文按空格断词拆行，中文按字数/标点拆行
+      const words = para.split(/\s+/);
+      if (words.length > 4) {
+        let currentLine = '';
+        for (const word of words) {
+          if (
+            currentLine.length + word.length + 1 > maxCharsPerLine &&
+            currentLine.length > 0
+          ) {
+            resultLines.push(currentLine.trim());
+            currentLine = word;
+          } else {
+            currentLine = currentLine ? `${currentLine} ${word}` : word;
+          }
+        }
+        if (currentLine.trim()) resultLines.push(currentLine.trim());
+      } else {
+        for (let i = 0; i < para.length; i += Math.floor(maxCharsPerLine / 2)) {
+          resultLines.push(para.slice(i, i + Math.floor(maxCharsPerLine / 2)));
+        }
+      }
+    }
+    const joined = resultLines.join('\n');
+    setCorrectedText(joined);
+    setOcrOutput(joined);
+    if (activeRegion) {
+      updateImageRegion(activeRegion.id, {
+        ocrText: joined,
+        correctedText: joined,
+      });
+    }
+    toast.success(`已按手稿物理行宽自动拆分为 ${resultLines.length} 行并同步锚定左侧行框`);
+  };
+
+  // 动态微调当前区域的版芯坐标 (normRect)
+  const boxRect = activeRegion?.normRect || { x: 20, y: 18, w: 60, h: 60 };
+  const handleUpdateNormRect = (
+    field: 'x' | 'y' | 'w' | 'h',
+    val: number
+  ) => {
+    if (!activeRegion) return;
+    const nextRect = {
+      ...boxRect,
+      [field]: Number(val.toFixed(1)),
+    };
+    const nextXywh = {
+      x: Math.round(nextRect.x * 10),
+      y: Math.round(nextRect.y * 14),
+      w: Math.round(nextRect.w * 10),
+      h: Math.round(nextRect.h * 14),
+    };
+    updateImageRegion(activeRegion.id, {
+      normRect: nextRect,
+      xywh: nextXywh,
+    });
+  };
+
   // 通古 OCR 功能：自动断句标点
   const handleAutoPunctuate = () => {
     const current = correctedText || ocrOutput;
@@ -526,18 +602,23 @@ export const Proofread: React.FC = () => {
       .split(/\r?\n/)
       .map((l) => l.trim())
       .filter(Boolean);
+    const total = Math.max(1, lines.length);
+    const stepH = boxRect.h / total;
     const data = {
       archiveName: activeFile?.name || 'unknown',
       regionId: activeRegion?.id,
       coordinates: activeRegion?.xywh,
+      normRect: boxRect,
       engine: activeRegion?.engineUsed || selectedEngine,
       totalLines: lines.length,
       lines: lines.map((text, idx) => ({
         lineIndex: idx + 1,
         text,
         normalizedBox: {
-          topPct: Number(((idx / Math.max(1, lines.length)) * 91).toFixed(2)),
-          heightPct: Number((85 / Math.max(1, lines.length)).toFixed(2)),
+          leftPct: Number(boxRect.x.toFixed(2)),
+          topPct: Number((boxRect.y + idx * stepH).toFixed(2)),
+          widthPct: Number(boxRect.w.toFixed(2)),
+          heightPct: Number((stepH * 0.94).toFixed(2)),
         },
       })),
       translation,
@@ -659,101 +740,308 @@ export const Proofread: React.FC = () => {
 
       {/* Main Two-Column Proofreading Workspace */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
-        {/* Left 5 Cols: Source Image / Cropped Region Reference */}
-        <div className="overflow-hidden rounded-[4px] border border-[#dcd5c9] bg-white lg:col-span-5">
-          <div className="flex items-center justify-between border-b border-[#dcd5c9] px-5 py-3.5">
-            <span className="text-xs font-semibold text-[#1f1b17]">
-              原件图像与定位坐标对照
-            </span>
-            {activeRegion && (
-              <span className="font-mono text-[11px] text-[#1f1b17]">
-                xywh=({activeRegion.xywh.x}, {activeRegion.xywh.y},{' '}
-                {activeRegion.xywh.w}, {activeRegion.xywh.h})
+        {/* Left Cols: Source Image / Cropped Region Reference (Default 7 Cols for Large Image) */}
+        <div
+          className={`overflow-hidden rounded-[4px] border border-[#dcd5c9] bg-white ${
+            layoutRatio === '7:5'
+              ? 'lg:col-span-7'
+              : layoutRatio === '6:6'
+              ? 'lg:col-span-6'
+              : 'lg:col-span-12'
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#dcd5c9] bg-[#faf8f3] px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-[#1f1b17]">
+                原件图像与行级版芯对照
               </span>
-            )}
+              {activeRegion && (
+                <span className="rounded bg-[#eeeae1] px-1.5 py-0.5 font-mono text-[10px] text-[#4a433a]">
+                  版芯域 X:{boxRect.x}% Y:{boxRect.y}% W:{boxRect.w}% H:{boxRect.h}%
+                </span>
+              )}
+            </div>
+
+            {/* Layout Ratio & ROI Zoom Controls */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setFocusRoiMode((v) => !v)}
+                className={`rounded-[3px] px-2.5 py-1 text-[11px] font-medium transition ${
+                  focusRoiMode
+                    ? 'bg-[#9b2c1f] text-white shadow-xs'
+                    : 'border border-[#dcd5c9] bg-white text-[#4a433a] hover:border-[#1f1b17]'
+                }`}
+                title="自动裁切周边案卷夹黑边，将打字机/手稿正文版芯放大至铺满视窗"
+              >
+                {focusRoiMode ? '🎯 已聚焦文字版芯' : '🖼️ 全页原图视图'}
+              </button>
+
+              <div className="flex items-center rounded-[3px] border border-[#dcd5c9] bg-white p-0.5 text-[10px]">
+                {[100, 130, 165].map((z) => (
+                  <button
+                    key={z}
+                    type="button"
+                    onClick={() => setImageZoom(z)}
+                    className={`rounded-[2px] px-1.5 py-0.5 font-mono transition ${
+                      imageZoom === z
+                        ? 'bg-[#1f1b17] text-white'
+                        : 'text-[#7a7166] hover:text-[#1f1b17]'
+                    }`}
+                  >
+                    {z}%
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center rounded-[3px] border border-[#dcd5c9] bg-white p-0.5 text-[10px]">
+                {(
+                  [
+                    { id: '7:5', label: '7:5 大图' },
+                    { id: '6:6', label: '6:6 对开' },
+                    { id: '12:12', label: '全宽巨幕' },
+                  ] as const
+                ).map((mode) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => setLayoutRatio(mode.id)}
+                    className={`rounded-[2px] px-1.5 py-0.5 transition ${
+                      layoutRatio === mode.id
+                        ? 'bg-[#1f1b17] text-white font-medium'
+                        : 'text-[#7a7166] hover:text-[#1f1b17]'
+                    }`}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div className="p-5">
+          <div className="p-4">
             {activeRegion?.cropDataUrl ||
             activeFile?.mimeType.startsWith('image/') ? (
               <div>
-                <div className="mb-2 flex items-center justify-between text-xs font-medium text-[#4a433a]">
-                  <span>
-                    {activeRegion?.label || activeFile?.name} · 图像与行级透镜
+                <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 text-xs font-medium text-[#4a433a]">
+                  <span className="truncate">
+                    {activeRegion?.label || activeFile?.name}
                   </span>
-                  <span className="font-mono text-[10px] text-[#7a7166]">
-                    {activeLineIndex !== null
-                      ? `已选定第 ${activeLineIndex + 1} 行锚点`
-                      : '点击色框双向定位'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[11px] text-[#9b2c1f]">
+                      {activeLineIndex !== null
+                        ? `当前双向锁定：第 #${String(activeLineIndex + 1).padStart(2, '0')} 行`
+                        : '悬停右侧文本或点击色框双向定位'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowBoxCalibrator((v) => !v)}
+                      className="rounded border border-[#dcd5c9] bg-[#f6f4ef] px-2 py-0.5 text-[10px] text-[#1f1b17] hover:border-[#1f1b17]"
+                    >
+                      {showBoxCalibrator ? '收起行框微调' : '🔧 微调版芯对齐'}
+                    </button>
+                  </div>
                 </div>
 
-                {/* Tonggu-Style Line Bounding Boxes Layer */}
-                <div className="relative mx-auto max-h-[460px] overflow-hidden rounded-[3px] border border-[#dcd5c9] bg-[#fdfbf7]">
-                  <img
-                    src={activeRegion?.cropDataUrl || activeFile?.dataUrl}
-                    alt="Source"
-                    className="block max-h-[440px] w-full object-contain"
-                  />
-                  {showTongguLens &&
-                    (correctedText || ocrOutput)
+                {/* Interactive NormRect Calibration Sliders (For fine-tuning custom scans) */}
+                {showBoxCalibrator && activeRegion && (
+                  <div className="mb-3 grid grid-cols-2 gap-3 rounded-[3px] border border-[#dcd5c9] bg-[#faf8f3] p-3 text-[11px] sm:grid-cols-4">
+                    <div>
+                      <div className="flex justify-between font-mono text-[10px] text-[#4a433a]">
+                        <span>上界起点 Y</span>
+                        <span>{boxRect.y}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={1}
+                        max={85}
+                        step={0.2}
+                        value={boxRect.y}
+                        onChange={(e) =>
+                          handleUpdateNormRect('y', parseFloat(e.target.value))
+                        }
+                        className="mt-1 w-full accent-[#9b2c1f]"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex justify-between font-mono text-[10px] text-[#4a433a]">
+                        <span>段落总高 H</span>
+                        <span>{boxRect.h}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={5}
+                        max={92}
+                        step={0.2}
+                        value={boxRect.h}
+                        onChange={(e) =>
+                          handleUpdateNormRect('h', parseFloat(e.target.value))
+                        }
+                        className="mt-1 w-full accent-[#9b2c1f]"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex justify-between font-mono text-[10px] text-[#4a433a]">
+                        <span>左边距 X</span>
+                        <span>{boxRect.x}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={1}
+                        max={60}
+                        step={0.2}
+                        value={boxRect.x}
+                        onChange={(e) =>
+                          handleUpdateNormRect('x', parseFloat(e.target.value))
+                        }
+                        className="mt-1 w-full accent-[#9b2c1f]"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex justify-between font-mono text-[10px] text-[#4a433a]">
+                        <span>行宽 W</span>
+                        <span>{boxRect.w}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={20}
+                        max={96}
+                        step={0.2}
+                        value={boxRect.w}
+                        onChange={(e) =>
+                          handleUpdateNormRect('w', parseFloat(e.target.value))
+                        }
+                        className="mt-1 w-full accent-[#9b2c1f]"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* High-Resolution Scrollable Viewport with Exact 1:1 Pixel-Locked Overlay */}
+                <div className="relative mx-auto max-h-[760px] overflow-auto rounded-[3px] border border-[#dcd5c9] bg-[#ebe6dc] shadow-inner">
+                  {(() => {
+                    const isSubRegion = boxRect.w < 82;
+                    const effectiveScale =
+                      focusRoiMode && isSubRegion
+                        ? Math.round(162 * (imageZoom / 100))
+                        : imageZoom;
+                    const offsetLeftPct =
+                      focusRoiMode && isSubRegion
+                        ? -Math.round(
+                            Math.max(0, boxRect.x - 4.5) *
+                              1.62 *
+                              (imageZoom / 100)
+                          )
+                        : 0;
+                    const offsetTopPct =
+                      focusRoiMode && isSubRegion
+                        ? -Math.round(
+                            Math.max(0, boxRect.y - 4.5) *
+                              1.25 *
+                              (imageZoom / 100)
+                          )
+                        : 0;
+
+                    const lines = (correctedText || ocrOutput)
                       .split(/\r?\n/)
                       .map((l) => l.trim())
-                      .filter(Boolean).length > 0 && (
-                      <div className="pointer-events-none absolute inset-0">
-                        {(correctedText || ocrOutput)
-                          .split(/\r?\n/)
-                          .map((l) => l.trim())
-                          .filter(Boolean)
-                          .map((line, idx, arr) => {
-                            const total = arr.length;
-                            const topPct = Math.max(2, (idx / total) * 91);
-                            const heightPct = Math.min(16, 85 / total);
-                            const isSelected = activeLineIndex === idx;
-                            const colors = [
-                              'border-sky-600 bg-sky-500/15 text-sky-800',
-                              'border-emerald-600 bg-emerald-500/15 text-emerald-800',
-                              'border-amber-600 bg-amber-500/15 text-amber-800',
-                              'border-violet-600 bg-violet-500/15 text-violet-800',
-                              'border-rose-600 bg-rose-500/15 text-rose-800',
-                            ];
-                            const colorCls = colors[idx % colors.length];
+                      .filter(Boolean);
 
-                            return (
-                              <div
-                                key={idx}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveLineIndex(idx);
-                                }}
-                                style={{
-                                  top: `${topPct}%`,
-                                  left: '5%',
-                                  width: '90%',
-                                  height: `${heightPct}%`,
-                                }}
-                                className={`pointer-events-auto absolute cursor-pointer border-2 transition-all ${colorCls} ${
-                                  isSelected
-                                    ? 'ring-2 ring-[#1f1b17] font-bold shadow-md scale-[1.01]'
-                                    : 'hover:opacity-95'
-                                }`}
-                                title={`第 ${idx + 1} 行：${line}`}
-                              >
-                                {showReadingOrder && (
-                                  <span className="absolute -top-3 left-1 rounded bg-[#1f1b17] px-1 py-0.2 font-mono text-[9px] text-white">
-                                    #{String(idx + 1).padStart(2, '0')}
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })}
+                    return (
+                      <div
+                        className="relative transition-all duration-200"
+                        style={{
+                          width: `${effectiveScale}%`,
+                          marginLeft: `${offsetLeftPct}%`,
+                          marginTop: `${offsetTopPct}%`,
+                        }}
+                      >
+                        <img
+                          src={activeRegion?.cropDataUrl || activeFile?.dataUrl}
+                          alt="Source"
+                          className="block h-auto w-full select-none"
+                        />
+
+                        {/* Active Region Outer Boundary Frame */}
+                        {showTongguLens && activeRegion && (
+                          <div
+                            style={{
+                              left: `${boxRect.x}%`,
+                              top: `${boxRect.y}%`,
+                              width: `${boxRect.w}%`,
+                              height: `${boxRect.h}%`,
+                            }}
+                            className="pointer-events-none absolute border border-dashed border-[#9b2c1f]/70 bg-[#9b2c1f]/[0.02]"
+                          >
+                            <span className="absolute -top-4 right-0 rounded bg-[#9b2c1f] px-1.5 py-0.5 font-mono text-[9px] text-white shadow-xs">
+                              版芯锚定域 ({lines.length} 行)
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Line-by-Line Bounding Boxes Anchored Strictly Inside normRect */}
+                        {showTongguLens && lines.length > 0 && (
+                          <div className="pointer-events-none absolute inset-0">
+                            {lines.map((line, idx, arr) => {
+                              const total = Math.max(1, arr.length);
+                              const stepH = boxRect.h / total;
+                              const topPct = boxRect.y + idx * stepH;
+                              const heightPct = Math.max(1.2, stepH * 0.92);
+                              const isSelected = activeLineIndex === idx;
+                              const colors = [
+                                'border-sky-600/85 bg-sky-500/12 text-sky-900',
+                                'border-emerald-600/85 bg-emerald-500/12 text-emerald-900',
+                                'border-amber-600/85 bg-amber-500/12 text-amber-900',
+                                'border-violet-600/85 bg-violet-500/12 text-violet-900',
+                                'border-rose-600/85 bg-rose-500/12 text-rose-900',
+                              ];
+                              const colorCls = colors[idx % colors.length];
+
+                              return (
+                                <div
+                                  key={idx}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveLineIndex(idx);
+                                  }}
+                                  onMouseEnter={() => setActiveLineIndex(idx)}
+                                  style={{
+                                    top: `${topPct}%`,
+                                    left: `${boxRect.x}%`,
+                                    width: `${boxRect.w}%`,
+                                    height: `${heightPct}%`,
+                                  }}
+                                  className={`pointer-events-auto absolute cursor-pointer border transition-all ${colorCls} ${
+                                    isSelected
+                                      ? 'z-20 border-2 border-[#9b2c1f] bg-[#9b2c1f]/20 ring-2 ring-[#9b2c1f]/40 shadow-md'
+                                      : 'hover:bg-white/20'
+                                  }`}
+                                  title={`#${String(idx + 1).padStart(2, '0')}：${line}`}
+                                >
+                                  {showReadingOrder && (
+                                    <span
+                                      className={`absolute -left-6 top-1/2 -translate-y-1/2 rounded px-1 py-0.2 font-mono text-[9px] leading-tight shadow-xs ${
+                                        isSelected
+                                          ? 'bg-[#9b2c1f] font-bold text-white'
+                                          : 'bg-[#1f1b17]/85 text-white'
+                                      }`}
+                                    >
+                                      #{String(idx + 1).padStart(2, '0')}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                    )}
+                    );
+                  })()}
                 </div>
 
                 {/* Tonggu OCR Style Visual Controls Toolbar */}
-                <div className="mt-3 flex flex-wrap items-center justify-between border-t border-[#eeeae1] pt-3 text-[11px] text-[#4a433a]">
-                  <div className="flex items-center gap-3">
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#eeeae1] pt-3 text-[11px] text-[#4a433a]">
+                  <div className="flex flex-wrap items-center gap-3">
                     <label className="flex cursor-pointer items-center gap-1">
                       <input
                         type="checkbox"
@@ -770,18 +1058,28 @@ export const Proofread: React.FC = () => {
                         onChange={(e) => setShowReadingOrder(e.target.checked)}
                         className="accent-[#1f1b17]"
                       />
-                      <span>行序标号 (#)</span>
+                      <span>左侧行序标号 (#01..#N)</span>
                     </label>
+                    <button
+                      type="button"
+                      onClick={() => handleAutoSplitPhysicalLines(62)}
+                      className="rounded border border-[#dcd5c9] bg-[#faf8f3] px-2 py-0.5 text-[10px] font-medium text-[#9b2c1f] hover:border-[#9b2c1f]"
+                      title="若识别结果为整段未分行文本，一键按打字机物理行宽拆分为多行并对齐左侧行框"
+                    >
+                      📏 按打字机物理行宽自动拆行
+                    </button>
                   </div>
                   <span className="font-mono text-[#7a7166]">
-                    已划分{' '}
-                    {
-                      (correctedText || ocrOutput)
-                        .split(/\r?\n/)
-                        .map((l) => l.trim())
-                        .filter(Boolean).length
-                    }{' '}
-                    行/句
+                    已锚定{' '}
+                    <strong className="text-[#1f1b17]">
+                      {
+                        (correctedText || ocrOutput)
+                          .split(/\r?\n/)
+                          .map((l) => l.trim())
+                          .filter(Boolean).length
+                      }
+                    </strong>{' '}
+                    个物理行框
                   </span>
                 </div>
               </div>
@@ -789,7 +1087,7 @@ export const Proofread: React.FC = () => {
               <iframe
                 src={activeFile.dataUrl}
                 title={activeFile.name}
-                className="h-[460px] w-full rounded-[3px] border border-[#dcd5c9]"
+                className="h-[680px] w-full rounded-[3px] border border-[#dcd5c9]"
               />
             ) : (
               <div className="flex min-h-[340px] flex-col items-center justify-center rounded-[3px] bg-[#f6f4ef] p-6 text-center">
@@ -804,8 +1102,16 @@ export const Proofread: React.FC = () => {
           </div>
         </div>
 
-        {/* Right 7 Cols: OCR Raw Output, Manual Proofreading & Translation */}
-        <div className="space-y-4 rounded-[4px] border border-[#dcd5c9] bg-white p-5 lg:col-span-7">
+        {/* Right Cols: OCR Raw Output, Manual Proofreading & Translation */}
+        <div
+          className={`space-y-4 rounded-[4px] border border-[#dcd5c9] bg-white p-5 ${
+            layoutRatio === '7:5'
+              ? 'lg:col-span-5'
+              : layoutRatio === '6:6'
+              ? 'lg:col-span-6'
+              : 'lg:col-span-12'
+          }`}
+        >
           {/* Top Feature Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeeae1] pb-3">
             <div className="flex items-center gap-1 rounded-[3px] bg-[#f6f4ef] p-0.5">
@@ -833,7 +1139,15 @@ export const Proofread: React.FC = () => {
               </button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => handleAutoSplitPhysicalLines(62)}
+                className="rounded-[2px] border border-[#dcd5c9] bg-white px-2 py-1 text-[11px] text-[#9b2c1f] hover:border-[#9b2c1f]"
+                title="按打字机物理行宽自动拆分为多行"
+              >
+                📏 自动拆行
+              </button>
               <button
                 type="button"
                 onClick={handleAutoPunctuate}
@@ -873,7 +1187,7 @@ export const Proofread: React.FC = () => {
                         .filter((l) => l.trim()).length
                     }
                   </strong>{' '}
-                  行文本 · 鼠标悬停行或左侧框均可实时双向高亮
+                  行物理行 · 悬停行或点击左侧色框实时双向高亮
                 </span>
                 <button
                   type="button"
@@ -884,10 +1198,10 @@ export const Proofread: React.FC = () => {
                 </button>
               </div>
 
-              <div className="max-h-[380px] space-y-2 overflow-y-auto pr-1">
+              <div className="max-h-[480px] space-y-2 overflow-y-auto pr-1">
                 {(correctedText || ocrOutput)
                   .split(/\r?\n/)
-                  .map((rawLine, idx, arr) => {
+                  .map((rawLine, idx) => {
                     const isSelected = activeLineIndex === idx;
                     const colors = [
                       'border-sky-600/60 bg-sky-50 text-sky-800',
@@ -904,7 +1218,7 @@ export const Proofread: React.FC = () => {
                         onMouseEnter={() => setActiveLineIndex(idx)}
                         className={`rounded-[3px] border p-2.5 transition-all ${
                           isSelected
-                            ? 'border-[#1f1b17] bg-[#fdfbf7] shadow-sm ring-1 ring-[#1f1b17]'
+                            ? 'border-[#9b2c1f] bg-[#fdfbf7] shadow-sm ring-1 ring-[#9b2c1f]'
                             : 'border-[#eeeae1] bg-white hover:border-[#cfc7b9]'
                         }`}
                       >
@@ -914,7 +1228,7 @@ export const Proofread: React.FC = () => {
                           >
                             #{String(idx + 1).padStart(2, '0')}
                           </span>
-                          <span className="font-mono text-[10px] text-[#7a7166]">
+                          <span className="truncate font-mono text-[10px] text-[#7a7166]">
                             OCR 原行：
                             {ocrOutput.split(/\r?\n/)[idx] || '（新增行）'}
                           </span>
@@ -925,10 +1239,10 @@ export const Proofread: React.FC = () => {
                               setPBasis(`源自第 ${idx + 1} 行录文`);
                               setPlaceModalOpen(true);
                             }}
-                            className="text-[10px] text-[#9b2c1f] hover:underline"
+                            className="shrink-0 text-[10px] text-[#9b2c1f] hover:underline"
                             title="以此行为线索提取地名"
                           >
-                            📌 提取此行地名
+                            📌 提取地名
                           </button>
                         </div>
                         <input
